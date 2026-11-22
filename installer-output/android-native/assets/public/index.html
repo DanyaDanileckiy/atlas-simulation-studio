@@ -1,0 +1,1749 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#0a1220">
+    <meta name="description" content="Профессиональная студия временных симуляций: страны, города, демография и собственные данные.">
+    <link rel="manifest" href="manifest.webmanifest">
+    <link rel="icon" href="icon.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="icon.svg">
+    <title>Atlas Studio — симуляции мира</title>
+    <script src="./vendor/tailwindcss.js"></script>
+    <script src="./vendor/d3.v7.min.js"></script>
+    
+    <style>
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #0f172a;
+            color: #e2e8f0;
+        }
+        body::before { content:"";position:fixed;inset:0;pointer-events:none;z-index:-1;background:radial-gradient(ellipse at 50% -28%,rgba(37,99,235,.19),transparent 60%); }
+        .studio-strip { min-height:42px;background:#0a1220;border-bottom:1px solid #263447;color:#aebbd0;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:7px 18px;font:500 12px Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;flex-shrink:0;position:relative;z-index:40 }
+        .studio-brand { color:#f8fafc;font-weight:800;letter-spacing:.04em }
+        .studio-control { background:#111c2c;border:1px solid #34445a;color:#e2e8f0;border-radius:8px;padding:6px 9px;font-size:12px;outline:none }
+        #project-name { width:min(42vw,235px);font-size:15px;font-weight:700;padding:8px 11px;background:#0f1928;border:1px solid #33445c;border-radius:9px;color:#fff }
+        #install-app {display:none;background:#2563eb;border:1px solid #3b82f6;color:#fff;border-radius:8px;padding:7px 10px;font-weight:650;cursor:pointer}
+        .install-help { color:#8ea0b8;font-size:11px }
+        body { overflow:auto!important;min-height:100vh }
+        .studio-strip~header { min-height:74px;padding:10px 16px }
+        @media(max-width:640px){body{height:auto!important;min-height:100dvh;overflow:hidden!important}.studio-strip{padding:7px 10px;flex-wrap:wrap}.install-help{display:none}.studio-strip~header{padding:9px 10px;gap:9px}.studio-strip~header h1{font-size:16px;gap:5px}#project-name{width:min(52vw,220px);font-size:14px;padding:6px 7px}.studio-strip~header>div:last-child{gap:6px}.studio-strip~header>div:last-child>div:first-child select{width:34vw}.studio-strip~header #settings-panel{right:6px;top:calc(100% - 1px);max-width:calc(100vw - 12px);max-height:65vh;overflow:auto}}
+        svg {
+            display: block;
+        }
+        .bar-label {
+            font-size: 14px;
+            font-weight: 600;
+            fill: #f8fafc;
+            alignment-baseline: middle;
+            text-anchor: end;
+        }
+        .bar-value {
+            font-size: 14px;
+            font-weight: 600;
+            fill: #94a3b8;
+            alignment-baseline: middle;
+        }
+        .trend-text {
+            font-size: 11px;
+            font-weight: 600;
+            alignment-baseline: middle;
+        }
+        .density-text {
+            font-size: 12px;
+            font-weight: 400;
+            fill: #64748b;
+        }
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1e293b; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #475569; 
+            border-radius: 4px;
+        }
+        .tab-btn.active {
+            border-bottom: 2px solid #3b82f6;
+            color: #3b82f6;
+        }
+        select option {
+            background-color: #0f172a;
+            color: #e2e8f0;
+        }
+        /* Custom Checkbox */
+        .toggle-checkbox:checked {
+            right: 0;
+            border-color: #3b82f6;
+        }
+        .toggle-checkbox:checked + .toggle-label {
+            background-color: #3b82f6;
+        }
+        
+        /* Убираем стили по умолчанию для инпутов */
+        input[type="text"] {
+            -moz-appearance: textfield;
+        }
+    </style>
+</head>
+<body class="h-screen flex flex-col overflow-hidden">
+
+    <div class="studio-strip">
+        <div><span class="studio-brand">ATLAS</span> <span data-i18n="studio">SIMULATION STUDIO</span></div>
+        <div class="flex items-center gap-2">
+            <label for="language-select" data-i18n="language">Язык</label>
+            <select id="language-select" class="studio-control" aria-label="Language"></select>
+            <button id="install-app" type="button" data-i18n="install">Установить</button>
+        </div>
+    </div>
+
+    <header class="bg-slate-800 border-b border-slate-700 p-4 flex flex-col md:flex-row justify-between items-center gap-4 z-30 shadow-lg shrink-0 relative">
+        <div>
+            <h1 class="text-xl font-bold text-white flex items-center gap-2">
+                🌍 <input id="project-name" type="text" maxlength="48" value="Демографическая гонка" aria-label="Название проекта">
+            </h1>
+            <p id="project-subtitle" class="text-xs text-slate-400 mt-1">Проектирование населения, прироста и плотности</p>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-3">
+            <div class="flex items-center gap-2 bg-slate-900 p-2 rounded-lg border border-slate-700">
+                <span class="text-slate-400 text-xs" data-i18n="subject">Предмет</span>
+                <select id="subject-quick" class="bg-transparent text-white text-sm focus:outline-none w-32 cursor-pointer"><option value="demography">Демография</option><option value="gdp">ВВП</option><option value="production">Производство</option><option value="migration">Миграция</option><option value="crime">Преступность</option><option value="custom">Своя метрика</option></select>
+            </div>
+            <div class="flex items-center gap-2 bg-slate-900 p-2 rounded-lg border border-slate-700">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-slate-400" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M3 3a1 1 0 011-1h12a1 1 0 011 1v3a1 1 0 01-.293.707L12 11.414V15a1 1 0 01-.293.707l-2 2A1 1 0 018 17v-5.586L3.293 6.707A1 1 0 013 6V3z" clip-rule="evenodd" />
+                </svg>
+                <select id="group-filter" class="bg-transparent text-white text-sm font-medium focus:outline-none w-48 cursor-pointer">
+                    <option value="all">🌍 Все регионы</option>
+                    <optgroup label="Континенты">
+                        <option value="Азия">Азия</option>
+                        <option value="Европа">Европа</option>
+                        <option value="Африка">Африка</option>
+                        <option value="Северная Америка">Северная Америка</option>
+                        <option value="Южная Америка">Южная Америка</option>
+                        <option value="Океания">Океания</option>
+                    </optgroup>
+                </select>
+            </div>
+            
+            <button id="btn-settings" class="bg-slate-700 hover:bg-slate-600 text-white px-3 py-2 rounded-lg font-medium shadow transition-colors text-sm flex items-center gap-2 border border-slate-600 relative">
+                ⚙️ Настройки
+            </button>
+            
+            <!-- Выпадающее меню настроек -->
+            <div id="settings-panel" class="hidden absolute top-full right-4 mt-2 w-72 bg-slate-800 border border-slate-600 rounded-lg shadow-2xl z-50 p-4 flex flex-col gap-4">
+                <div>
+                    <label class="block text-xs text-slate-400 mb-1">Метрика гонки</label>
+                    <select id="metric-select" class="w-full bg-slate-900 border border-slate-700 rounded p-1.5 text-sm text-white focus:outline-none">
+                        <option value="population">По общему населению</option>
+                        <option value="growth_abs">По абсолютному приросту (чел/год)</option>
+                        <option value="density">По плотности (чел/км²)</option>
+                        <option value="gdp">ВВП (демо-индекс)</option>
+                        <option value="production">Производство (демо-индекс)</option>
+                        <option value="migration">Миграционный баланс (демо-индекс)</option>
+                        <option value="crime">Уровень преступности (демо-индекс)</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs text-slate-400 mb-1" data-i18n="simulation">Что симулируем</label>
+                    <select id="simulation-select" class="w-full bg-slate-900 border border-slate-700 rounded p-1.5 text-sm text-white focus:outline-none">
+                        <option value="demography">Демография</option><option value="gdp">ВВП</option><option value="production">Производство</option><option value="migration">Мигранты</option><option value="crime">Преступность</option><option value="custom">Своя метрика</option>
+                    </select>
+                </div>
+                <div id="custom-metric-wrap" class="hidden">
+                    <label class="block text-xs text-slate-400 mb-1" data-i18n="customMetric">Название своей метрики</label>
+                    <input id="custom-metric" maxlength="30" class="w-full bg-slate-900 border border-slate-700 rounded p-1.5 text-sm text-white" placeholder="Например: уровень образования">
+                </div>
+                <div>
+                    <label class="block text-xs text-slate-400 mb-1">Показывать участников</label>
+                    <select id="top-n-select" class="w-full bg-slate-900 border border-slate-700 rounded p-1.5 text-sm text-white focus:outline-none">
+                        <option value="10">Топ-10</option>
+                        <option value="20">Топ-20</option>
+                        <option value="50">Топ-50</option>
+                        <option value="100">Топ-100</option>
+                        <option value="150" selected>Все 150</option>
+                    </select>
+                </div>
+                <div class="flex items-center justify-between">
+                    <label class="text-sm text-slate-300">Автомасштаб оси X</label>
+                    <div class="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in">
+                        <input type="checkbox" name="toggle" id="auto-zoom" checked class="toggle-checkbox absolute block w-5 h-5 rounded-full bg-white border-4 border-slate-600 appearance-none cursor-pointer z-10 transition-transform duration-200 ease-in-out"/>
+                        <label for="auto-zoom" class="toggle-label block overflow-hidden h-5 rounded-full bg-slate-600 cursor-pointer"></label>
+                    </div>
+                </div>
+                <div class="flex items-center justify-between">
+                    <label class="text-sm text-slate-300">Звук при обгонах 🔊</label>
+                    <div class="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in">
+                        <input type="checkbox" name="toggle" id="sound-toggle" class="toggle-checkbox absolute block w-5 h-5 rounded-full bg-white border-4 border-slate-600 appearance-none cursor-pointer z-10 transition-transform duration-200 ease-in-out"/>
+                        <label for="sound-toggle" class="toggle-label block overflow-hidden h-5 rounded-full bg-slate-600 cursor-pointer"></label>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <div class="flex-1 flex flex-col relative overflow-hidden min-h-0">
+        
+        <div class="flex border-b border-slate-700 px-6 bg-slate-800/50 shrink-0">
+            <button id="tab-countries" class="tab-btn active px-4 py-3 font-medium text-sm transition-colors">Гонка: Страны</button>
+            <button id="tab-cities" class="tab-btn px-4 py-3 font-medium text-slate-400 hover:text-slate-200 transition-colors">Гонка: Города</button>
+            <button id="tab-data-countries" class="tab-btn px-4 py-3 font-medium text-slate-400 hover:text-slate-200 transition-colors">Редактор: Страны</button>
+            <button id="tab-data-cities" class="tab-btn px-4 py-3 font-medium text-slate-400 hover:text-slate-200 transition-colors">Редактор: Города</button>
+        </div>
+
+        <div id="timeline-container" class="px-4 py-3 bg-slate-800/80 backdrop-blur border-b border-slate-700 flex flex-wrap items-center gap-4 shrink-0 z-20 shadow-sm">
+            <div class="flex items-center gap-2">
+                <button id="btn-play" class="bg-blue-600 hover:bg-blue-500 text-white p-2 rounded-md transition-colors w-10 h-10 flex justify-center items-center shadow-md" title="Воспроизведение / Пауза">
+                    <svg id="icon-play" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd" /></svg>
+                    <svg id="icon-pause" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 hidden" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM7 8a1 1 0 012 0v4a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" /></svg>
+                </button>
+                <button id="btn-reset" class="hover:bg-slate-600 bg-slate-700 text-slate-200 p-2 rounded-md transition-colors w-10 h-10 flex justify-center items-center shadow-md" title="Сбросить на начало">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd" /></svg>
+                </button>
+            </div>
+
+            <div class="flex-1 flex items-center gap-3 min-w-[200px]">
+                <span class="text-xs text-slate-400 font-mono font-medium bg-slate-900 px-2 py-1 rounded">1900</span>
+                <input type="range" id="year-slider" min="1900" max="2100" step="0.1" value="1900" 
+                       class="flex-1 h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500 hover:accent-blue-400 transition-all">
+                <span id="max-year-label" class="text-xs text-slate-400 font-mono font-medium bg-slate-900 px-2 py-1 rounded">2100</span>
+            </div>
+
+            <div class="flex flex-col items-center justify-center px-4 md:px-6 border-x border-slate-600 bg-slate-800/50 rounded-lg shrink-0 h-10">
+                <span class="text-[9px] font-bold text-slate-400 uppercase tracking-widest leading-none mb-1 flex items-center gap-1" id="total-metric-label">
+                    Суммарное население
+                </span>
+                <span id="total-pop-val" class="text-xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-emerald-400 tabular-nums leading-none drop-shadow-sm">
+                    0
+                </span>
+            </div>
+
+            <div class="flex bg-slate-900 rounded-lg overflow-hidden text-xs font-medium border border-slate-700 shadow-inner h-10 shrink-0">
+                <button class="speed-btn px-3 py-1 bg-blue-600 hover:bg-blue-500 text-white transition-colors" data-speed="15000">15с/год</button>
+                <button class="speed-btn px-3 py-1 hover:bg-slate-700 text-slate-300 transition-colors border-l border-slate-800" data-speed="10000">10с/год</button>
+                <button class="speed-btn px-3 py-1 hover:bg-slate-700 text-slate-300 transition-colors border-l border-slate-800" data-speed="5000">5с/год</button>
+            </div>
+        </div>
+
+        <div id="view-viz" class="flex-1 w-full relative p-4 flex flex-col min-h-0">
+            <div id="chart-wrapper" class="w-full flex-1 bg-slate-900 rounded-xl border border-slate-800 shadow-inner flex flex-col relative overflow-hidden z-10">
+                <div id="year-bg-html" class="absolute bottom-4 right-8 text-[140px] sm:text-[200px] font-extrabold text-white opacity-[0.03] pointer-events-none tabular-nums z-0 leading-none">1900</div>
+                <div id="axis-container" class="w-full h-[40px] bg-slate-900/90 backdrop-blur z-20 border-b border-slate-700/50 shrink-0"></div>
+                <div id="chart-container" class="w-full flex-1 overflow-y-auto overflow-x-hidden relative z-10 scroll-smooth"></div>
+            </div>
+            <div id="error-msg" class="hidden absolute top-10 left-1/2 transform -translate-x-1/2 bg-red-900/90 text-red-200 px-6 py-3 rounded-lg border border-red-700 shadow-xl z-40"></div>
+        </div>
+
+        <div id="view-data" class="hidden flex-1 w-full flex flex-col p-6 gap-4 bg-slate-900 min-h-0 overflow-hidden z-20">
+            <div class="flex justify-between items-center shrink-0 flex-wrap gap-4">
+                <div class="flex items-center gap-4">
+                    <h2 id="editor-title" class="text-lg font-bold text-white">Редактор: Страны</h2>
+                </div>
+                <div class="flex flex-wrap gap-2 items-center">
+                    <button id="btn-clear-all" class="bg-red-700 hover:bg-red-600 text-white px-3 py-1.5 rounded-lg font-medium shadow transition-colors flex items-center gap-1 text-sm" title="Обнулить население">
+                        Обнулить
+                    </button>
+                    <button id="btn-add-row" class="bg-slate-700 hover:bg-slate-600 text-white px-3 py-1.5 rounded-lg font-medium shadow transition-colors text-sm">
+                        + Добавить строку
+                    </button>
+                    <button id="btn-smooth-data" class="bg-amber-600 hover:bg-amber-500 text-white px-3 py-1.5 rounded-lg font-medium shadow transition-colors text-sm flex items-center gap-1" title="Убрать резкие скачки в данных">
+                        ✨ Сгладить данные
+                    </button>
+                    
+                    <div class="flex items-center gap-1 bg-indigo-900/50 rounded-lg p-1 border border-indigo-700/50 ml-2">
+                        <select id="extrapolate-scenario" class="bg-slate-800 text-white text-xs px-2 py-1.5 rounded focus:outline-none border border-slate-600">
+                            <option value="trend">Тренд</option>
+                            <option value="boom">Бэби-бум</option>
+                            <option value="stagnation">Стагнация</option>
+                            <option value="decline">Спад</option>
+                        </select>
+                        <button id="btn-add-10-years-editor" class="bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded font-medium shadow transition-colors text-sm flex items-center gap-1" title="Спрогнозировать 10 лет и добавить новый столбец">
+                            +10 лет (столбец)
+                        </button>
+                    </div>
+
+                    <button id="btn-apply-data" class="bg-green-600 hover:bg-green-500 text-white px-4 py-1.5 rounded-lg font-medium shadow-lg transition-colors flex items-center gap-2 ml-4">
+                        Применить данные
+                    </button>
+                </div>
+            </div>
+            
+            <div class="flex-1 w-full bg-slate-800 rounded-lg border border-slate-700 overflow-auto shadow-inner relative scroll-smooth" id="table-scroll-container">
+                <table class="w-full text-sm text-left text-slate-300 whitespace-nowrap min-w-max">
+                    <thead class="text-xs text-slate-400 uppercase bg-slate-900 z-20 sticky top-0 shadow-md">
+                        <tr id="table-header-row"></tr>
+                    </thead>
+                    <tbody id="table-body"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="install-help px-4 py-1 bg-slate-900 border-t border-slate-800 shrink-0" data-i18n="installHelp">Установка: используйте кнопку вверху в поддерживаемом браузере. iPhone/iPad: Safari → «Поделиться» → «На экран Домой».</div>
+
+<script>
+    /* =========================================
+       ДАННЫЕ: ТОП-150 СТРАН МИРА (ПОЛНЫЙ СПИСОК)
+       ========================================= */
+       
+    // 1-50
+    const countriesTop50 = [
+        { "name": "Индия", "flag": "🇮🇳", "color": "#f97316", "area": 3287263, "data": { "1950": 357021000, "1960": 445954000, "1970": 553578000, "1980": 696828000, "1990": 870133000, "2000": 1059536000, "2010": 1240613000, "2020": 1396387000, "2030": 1514994000, "2050": 1670490000, "2075": 1640000000, "2100": 1529850000 } },
+        { "name": "Китай", "flag": "🇨🇳", "color": "#ef4444", "area": 9596961, "data": { "1950": 543979000, "1960": 654170000, "1970": 822534000, "1980": 982372000, "1990": 1153704000, "2000": 1264099000, "2010": 1341300000, "2020": 1424929000, "2030": 1415605000, "2050": 1312636000, "2075": 1022000000, "2100": 766673000 } },
+        { "name": "США", "flag": "🇺🇸", "color": "#3b82f6", "area": 9833517, "data": { "1950": 152271000, "1960": 180671000, "1970": 205052000, "1980": 227224000, "1990": 249622000, "2000": 282162000, "2010": 309327000, "2020": 331002000, "2030": 349641000, "2050": 375390000, "2075": 389000000, "2100": 394044000 } },
+        { "name": "Индонезия", "flag": "🇮🇩", "color": "#ef0000", "area": 1904569, "data": { "1950": 69543000, "1960": 87751000, "1970": 114834000, "1980": 147447000, "1990": 181413000, "2000": 214072000, "2010": 241834000, "2020": 273523000, "2030": 292150000, "2050": 317225000, "2075": 315000000, "2100": 296000000 } },
+        { "name": "Пакистан", "flag": "🇵🇰", "color": "#22c55e", "area": 881912, "data": { "1950": 37542000, "1960": 44900000, "1970": 59383000, "1980": 80624000, "1990": 114000000, "2000": 154369000, "2010": 189400000, "2020": 227196000, "2030": 274000000, "2050": 367807000, "2075": 445000000, "2100": 487000000 } },
+        { "name": "Нигерия", "flag": "🇳🇬", "color": "#16a34a", "area": 923768, "data": { "1950": 37859000, "1960": 45137000, "1970": 55981000, "1980": 73423000, "1990": 95212000, "2000": 122283000, "2010": 158503000, "2020": 208327000, "2030": 262000000, "2050": 377459000, "2075": 480000000, "2100": 546000000 } },
+        { "name": "Бразилия", "flag": "🇧🇷", "color": "#eab308", "area": 8515767, "data": { "1950": 53974000, "1960": 72493000, "1970": 95326000, "1980": 122200000, "1990": 150000000, "2000": 175287000, "2010": 196353000, "2020": 212559000, "2030": 224000000, "2050": 231120000, "2075": 215000000, "2100": 185000000 } },
+        { "name": "Бангладеш", "flag": "🇧🇩", "color": "#15803d", "area": 147570, "data": { "1950": 39736000, "1960": 50000000, "1970": 65000000, "1980": 81000000, "1990": 106000000, "2000": 131280000, "2010": 147575000, "2020": 164689000, "2030": 178000000, "2050": 203000000, "2075": 185000000, "2100": 153000000 } },
+        { "name": "Россия", "flag": "🇷🇺", "color": "#0ea5e9", "area": 17098242, "data": { "1950": 102798000, "1960": 119897000, "1970": 130148000, "1980": 138053000, "1990": 147963000, "2000": 146396000, "2010": 143242000, "2020": 145934000, "2030": 142000000, "2050": 133133000, "2075": 120000000, "2100": 112000000 } },
+        { "name": "Мексика", "flag": "🇲🇽", "color": "#14b8a6", "area": 1964375, "data": { "1950": 27737000, "1960": 38000000, "1970": 52000000, "1980": 67000000, "1990": 83000000, "2000": 97500000, "2010": 112536000, "2020": 128932000, "2030": 138000000, "2050": 143900000, "2075": 130000000, "2100": 115000000 } },
+        { "name": "Эфиопия", "flag": "🇪🇹", "color": "#84cc16", "area": 1104300, "data": { "1950": 18128000, "1960": 22000000, "1970": 28400000, "1980": 35000000, "1990": 48000000, "2000": 66000000, "2010": 89000000, "2020": 114963000, "2030": 145000000, "2050": 214000000, "2075": 280000000, "2100": 323000000 } },
+        { "name": "Япония", "flag": "🇯🇵", "color": "#cbd5e1", "area": 377975, "data": { "1950": 82198000, "1960": 93000000, "1970": 104000000, "1980": 116000000, "1990": 123000000, "2000": 126000000, "2010": 128000000, "2020": 125836000, "2030": 120000000, "2050": 103000000, "2075": 85000000, "2100": 73000000 } },
+        { "name": "Филиппины", "flag": "🇵🇭", "color": "#1e3a8a", "area": 300000, "data": { "1950": 18580000, "1960": 26270000, "1970": 35800000, "1980": 47390000, "1990": 61940000, "2000": 77990000, "2010": 93960000, "2020": 109580000, "2030": 125000000, "2050": 150000000, "2075": 165000000, "2100": 170000000 } },
+        { "name": "Египет", "flag": "🇪🇬", "color": "#b91c1c", "area": 1002450, "data": { "1950": 20455000, "1960": 27072000, "1970": 34513000, "1980": 43309000, "1990": 56134000, "2000": 69905000, "2010": 82761000, "2020": 102334000, "2030": 118000000, "2050": 159000000, "2075": 195000000, "2100": 224000000 } },
+        { "name": "ДР Конго", "flag": "🇨🇩", "color": "#0284c7", "area": 2344858, "data": { "1950": 12183000, "1960": 15248000, "1970": 20009000, "1980": 26792000, "1990": 34614000, "2000": 47076000, "2010": 64515000, "2020": 89561000, "2030": 122000000, "2050": 215000000, "2075": 330000000, "2100": 431000000 } },
+        { "name": "Вьетнам", "flag": "🇻🇳", "color": "#dc2626", "area": 331212, "data": { "1950": 24810000, "1960": 32670000, "1970": 43400000, "1980": 54280000, "1990": 68140000, "2000": 79000000, "2010": 87400000, "2020": 97330000, "2030": 104000000, "2050": 109000000, "2075": 104000000, "2100": 97000000 } },
+        { "name": "Иран", "flag": "🇮🇷", "color": "#16a34a", "area": 1648195, "data": { "1950": 17119000, "1960": 21906000, "1970": 28513000, "1980": 38668000, "1990": 56366000, "2000": 65620000, "2010": 74390000, "2020": 83990000, "2030": 88000000, "2050": 93000000, "2075": 85000000, "2100": 73000000 } },
+        { "name": "Турция", "flag": "🇹🇷", "color": "#ef4444", "area": 783562, "data": { "1950": 21408000, "1960": 27472000, "1970": 34876000, "1980": 43975000, "1990": 53921000, "2000": 63240000, "2010": 72320000, "2020": 84330000, "2030": 88000000, "2050": 95000000, "2075": 92000000, "2100": 85000000 } },
+        { "name": "Германия", "flag": "🇩🇪", "color": "#000000", "area": 357022, "data": { "1950": 69966000, "1960": 73215000, "1970": 78169000, "1980": 78288000, "1990": 79350000, "2000": 82210000, "2010": 81770000, "2020": 83780000, "2030": 82000000, "2050": 79000000, "2075": 74000000, "2100": 69000000 } },
+        { "name": "Таиланд", "flag": "🇹🇭", "color": "#1d4ed8", "area": 513120, "data": { "1950": 20710000, "1960": 27390000, "1970": 36880000, "1980": 47380000, "1990": 56580000, "2000": 62950000, "2010": 67190000, "2020": 69790000, "2030": 70000000, "2050": 65000000, "2075": 55000000, "2100": 46000000 } },
+        { "name": "Великобритания", "flag": "🇬🇧", "color": "#1e3a8a", "area": 242495, "data": { "1950": 50616000, "1960": 52400000, "1970": 55632000, "1980": 56314000, "1990": 57247000, "2000": 58890000, "2010": 62760000, "2020": 67880000, "2030": 70000000, "2050": 73000000, "2075": 74000000, "2100": 75000000 } },
+        { "name": "Танзания", "flag": "🇹🇿", "color": "#0ea5e9", "area": 945087, "data": { "1950": 7650000, "1960": 10074000, "1970": 13605000, "1980": 18682000, "1990": 25458000, "2000": 34178000, "2010": 45110000, "2020": 59730000, "2030": 80000000, "2050": 135000000, "2075": 210000000, "2100": 286000000 } },
+        { "name": "Франция", "flag": "🇫🇷", "color": "#2563eb", "area": 551695, "data": { "1950": 41833000, "1960": 45684000, "1970": 50771000, "1980": 53870000, "1990": 56735000, "2000": 59010000, "2010": 62780000, "2020": 65270000, "2030": 67000000, "2050": 68000000, "2075": 66000000, "2100": 64000000 } },
+        { "name": "ЮАР", "flag": "🇿🇦", "color": "#fbbf24", "area": 1221037, "data": { "1950": 13627000, "1960": 17396000, "1970": 22502000, "1980": 29073000, "1990": 36800000, "2000": 44960000, "2010": 51210000, "2020": 59300000, "2030": 65000000, "2050": 75000000, "2075": 80000000, "2100": 79000000 } },
+        { "name": "Италия", "flag": "🇮🇹", "color": "#16a34a", "area": 301340, "data": { "1950": 46598000, "1960": 50199000, "1970": 53685000, "1980": 56433000, "1990": 56740000, "2000": 56940000, "2010": 59270000, "2020": 59550000, "2030": 57000000, "2050": 52000000, "2075": 46000000, "2100": 40000000 } },
+        { "name": "Кения", "flag": "🇰🇪", "color": "#000000", "area": 580367, "data": { "1950": 6076000, "1960": 8105000, "1970": 11252000, "1980": 16267000, "1990": 23446000, "2000": 31450000, "2010": 42030000, "2020": 53770000, "2030": 66000000, "2050": 91000000, "2075": 115000000, "2100": 125000000 } },
+        { "name": "Мьянма", "flag": "🇲🇲", "color": "#facc15", "area": 676578, "data": { "1950": 17527000, "1960": 21486000, "1970": 27368000, "1980": 34816000, "1990": 42100000, "2000": 46090000, "2010": 50150000, "2020": 54400000, "2030": 57000000, "2050": 60000000, "2075": 58000000, "2100": 53000000 } },
+        { "name": "Колумбия", "flag": "🇨🇴", "color": "#eab308", "area": 1141748, "data": { "1950": 12340000, "1960": 16480000, "1970": 22060000, "1980": 27730000, "1990": 34270000, "2000": 40400000, "2010": 45220000, "2020": 50880000, "2030": 54000000, "2050": 57000000, "2075": 54000000, "2100": 48000000 } },
+        { "name": "Южная Корея", "flag": "🇰🇷", "color": "#1d4ed8", "area": 100210, "data": { "1950": 19211000, "1960": 25012000, "1970": 32240000, "1980": 38124000, "1990": 42869000, "2000": 47000000, "2010": 49550000, "2020": 51260000, "2030": 50000000, "2050": 45000000, "2075": 35000000, "2100": 24000000 } },
+        { "name": "Уганда", "flag": "🇺🇬", "color": "#eab308", "area": 241038, "data": { "1950": 5158000, "1960": 6788000, "1970": 9446000, "1980": 12613000, "1990": 17502000, "2000": 23950000, "2010": 33420000, "2020": 45740000, "2030": 60000000, "2050": 89000000, "2075": 130000000, "2100": 160000000 } },
+        { "name": "Судан", "flag": "🇸🇩", "color": "#059669", "area": 1886068, "data": { "1950": 5732000, "1960": 7545000, "1970": 10214000, "1980": 14214000, "1990": 19853000, "2000": 27270000, "2010": 34380000, "2020": 43840000, "2030": 56000000, "2050": 85000000, "2075": 125000000, "2100": 155000000 } },
+        { "name": "Испания", "flag": "🇪🇸", "color": "#ef4444", "area": 505990, "data": { "1950": 28070000, "1960": 30455000, "1970": 33956000, "1980": 37488000, "1990": 38867000, "2000": 40560000, "2010": 46570000, "2020": 47350000, "2030": 47000000, "2050": 44000000, "2075": 38000000, "2100": 33000000 } },
+        { "name": "Аргентина", "flag": "🇦🇷", "color": "#60a5fa", "area": 2780400, "data": { "1950": 17037000, "1960": 20481000, "1970": 23880000, "1980": 27896000, "1990": 32618000, "2000": 36870000, "2010": 40780000, "2020": 45190000, "2030": 49000000, "2050": 55000000, "2075": 58000000, "2100": 57000000 } },
+        { "name": "Алжир", "flag": "🇩🇿", "color": "#16a34a", "area": 2381741, "data": { "1950": 8872000, "1960": 11058000, "1970": 14464000, "1980": 19221000, "1990": 25758000, "2000": 31040000, "2010": 35970000, "2020": 43850000, "2030": 50000000, "2050": 60000000, "2075": 68000000, "2100": 70000000 } },
+        { "name": "Ирак", "flag": "🇮🇶", "color": "#ef4444", "area": 438317, "data": { "1950": 5719000, "1960": 7289000, "1970": 9917000, "1980": 13653000, "1990": 17418000, "2000": 23490000, "2010": 29740000, "2020": 40220000, "2030": 50000000, "2050": 75000000, "2075": 105000000, "2100": 130000000 } },
+        { "name": "Афганистан", "flag": "🇦🇫", "color": "#000000", "area": 652864, "data": { "1950": 7752000, "1960": 8996000, "1970": 11126000, "1980": 13248000, "1990": 12412000, "2000": 20090000, "2010": 28180000, "2020": 38920000, "2030": 50000000, "2050": 75000000, "2075": 100000000, "2100": 110000000 } },
+        { "name": "Польша", "flag": "🇵🇱", "color": "#dc2626", "area": 312696, "data": { "1950": 24824000, "1960": 29689000, "1970": 32525000, "1980": 35578000, "1990": 38110000, "2000": 38550000, "2010": 38270000, "2020": 37840000, "2030": 36000000, "2050": 32000000, "2075": 26000000, "2100": 21000000 } },
+        { "name": "Канада", "flag": "🇨🇦", "color": "#ef4444", "area": 9984670, "data": { "1950": 13733000, "1960": 17909000, "1970": 21439000, "1980": 24515000, "1990": 27790000, "2000": 30680000, "2010": 34000000, "2020": 37740000, "2030": 42000000, "2050": 48000000, "2075": 54000000, "2100": 58000000 } },
+        { "name": "Марокко", "flag": "🇲🇦", "color": "#b91c1c", "area": 446550, "data": { "1950": 8980000, "1960": 12328000, "1970": 16004000, "1980": 20072000, "1990": 24805000, "2000": 28840000, "2010": 32100000, "2020": 36910000, "2030": 40000000, "2050": 45000000, "2075": 46000000, "2100": 43000000 } },
+        { "name": "Саудовская Аравия", "flag": "🇸🇦", "color": "#16a34a", "area": 2149690, "data": { "1950": 3121000, "1960": 4043000, "1970": 5771000, "1980": 9811000, "1990": 16200000, "2000": 20680000, "2010": 27420000, "2020": 34810000, "2030": 40000000, "2050": 48000000, "2075": 52000000, "2100": 53000000 } },
+        { "name": "Украина", "flag": "🇺🇦", "color": "#0ea5e9", "area": 603500, "data": { "1950": 37297000, "1960": 42664000, "1970": 47280000, "1980": 50043000, "1990": 51630000, "2000": 48830000, "2010": 45780000, "2020": 43730000, "2030": 40000000, "2050": 35000000, "2075": 28000000, "2100": 24000000 } },
+        { "name": "Ангола", "flag": "🇦🇴", "color": "#dc2626", "area": 1246700, "data": { "1950": 4548000, "1960": 5416000, "1970": 6028000, "1980": 8341000, "1990": 11828000, "2000": 16390000, "2010": 23360000, "2020": 32860000, "2030": 45000000, "2050": 78000000, "2075": 125000000, "2100": 170000000 } },
+        { "name": "Узбекистан", "flag": "🇺🇿", "color": "#0ea5e9", "area": 448978, "data": { "1950": 6264000, "1960": 8526000, "1970": 11973000, "1980": 15951000, "1990": 20490000, "2000": 24780000, "2010": 28510000, "2020": 33460000, "2030": 38000000, "2050": 45000000, "2075": 48000000, "2100": 47000000 } },
+        { "name": "Йемен", "flag": "🇾🇪", "color": "#ef4444", "area": 527968, "data": { "1950": 4712000, "1960": 5315000, "1970": 6193000, "1980": 8059000, "1990": 12416000, "2000": 17400000, "2010": 23150000, "2020": 29820000, "2030": 36000000, "2050": 50000000, "2075": 65000000, "2100": 70000000 } },
+        { "name": "Перу", "flag": "🇵🇪", "color": "#ef4444", "area": 1285216, "data": { "1950": 7632000, "1960": 10014000, "1970": 13192000, "1980": 17295000, "1990": 21826000, "2000": 25950000, "2010": 29020000, "2020": 32970000, "2030": 36000000, "2050": 41000000, "2075": 43000000, "2100": 41000000 } },
+        { "name": "Малайзия", "flag": "🇲🇾", "color": "#1e3a8a", "area": 330803, "data": { "1950": 6109000, "1960": 8160000, "1970": 10839000, "1980": 13795000, "1990": 18037000, "2000": 23190000, "2010": 28200000, "2020": 32360000, "2030": 36000000, "2050": 41000000, "2075": 44000000, "2100": 42000000 } },
+        { "name": "Гана", "flag": "🇬🇭", "color": "#000000", "area": 238533, "data": { "1950": 5033000, "1960": 6652000, "1970": 8558000, "1980": 10802000, "1990": 14628000, "2000": 18939000, "2010": 24263000, "2020": 31072000, "2030": 38000000, "2050": 52000000, "2075": 68000000, "2100": 80000000 } },
+        { "name": "Мозамбик", "flag": "🇲🇿", "color": "#16a34a", "area": 801590, "data": { "1950": 5959000, "1960": 7472000, "1970": 9452000, "1980": 12102000, "1990": 13371000, "2000": 17710000, "2010": 23530000, "2020": 31250000, "2030": 42000000, "2050": 68000000, "2075": 105000000, "2100": 135000000 } },
+        { "name": "Непал", "flag": "🇳🇵", "color": "#dc2626", "area": 147181, "data": { "1950": 8483000, "1960": 10035000, "1970": 11919000, "1980": 14848000, "1990": 18902000, "2000": 23741000, "2010": 26861000, "2020": 29136000, "2030": 32000000, "2050": 36000000, "2075": 35000000, "2100": 30000000 } },
+        { "name": "Мадагаскар", "flag": "🇲🇬", "color": "#ef4444", "area": 587041, "data": { "1950": 4084000, "1960": 5099000, "1970": 6565000, "1980": 8714000, "1990": 11545000, "2000": 15766000, "2010": 21079000, "2020": 27691000, "2030": 36000000, "2050": 54000000, "2075": 78000000, "2100": 95000000 } }
+    ];
+
+    // 51-100
+    const countries51to100 = [
+        { "name": "Кот-д'Ивуар", "flag": "🇨🇮", "color": "#f97316", "area": 322463, "data": { "1950": 2630000, "1960": 3500000, "1970": 5300000, "1980": 8300000, "1990": 12000000, "2000": 16000000, "2010": 20000000, "2020": 26378000, "2030": 34000000, "2050": 52000000, "2075": 75000000, "2100": 92000000 } },
+        { "name": "Венесуэла", "flag": "🇻🇪", "color": "#eab308", "area": 916445, "data": { "1950": 5482000, "1960": 8146000, "1970": 11587000, "1980": 15343000, "1990": 19862000, "2000": 24488000, "2010": 28439000, "2020": 28435000, "2030": 32000000, "2050": 38000000, "2075": 41000000, "2100": 39000000 } },
+        { "name": "Камерун", "flag": "🇨🇲", "color": "#16a34a", "area": 475442, "data": { "1950": 4306000, "1960": 5176000, "1970": 6552000, "1980": 8665000, "1990": 11843000, "2000": 15274000, "2010": 19878000, "2020": 26545000, "2030": 35000000, "2050": 56000000, "2075": 82000000, "2100": 102000000 } },
+        { "name": "Нигер", "flag": "🇳🇪", "color": "#f97316", "area": 1267000, "data": { "1950": 2559000, "1960": 3388000, "1970": 4514000, "1980": 5989000, "1990": 8027000, "2000": 11331000, "2010": 16425000, "2020": 24206000, "2030": 35000000, "2050": 68000000, "2075": 115000000, "2100": 165000000 } },
+        { "name": "Австралия", "flag": "🇦🇺", "color": "#0ea5e9", "area": 7692024, "data": { "1950": 8177000, "1960": 10276000, "1970": 12793000, "1980": 14692000, "1990": 17065000, "2000": 19028000, "2010": 22031000, "2020": 25499000, "2030": 28000000, "2050": 33000000, "2075": 38000000, "2100": 42000000 } },
+        { "name": "КНДР", "flag": "🇰🇵", "color": "#ef4444", "area": 120538, "data": { "1950": 10549000, "1960": 11424000, "1970": 14611000, "1980": 17472000, "1990": 20293000, "2000": 22929000, "2010": 24501000, "2020": 25778000, "2030": 26500000, "2050": 26000000, "2075": 23000000, "2100": 19000000 } },
+        { "name": "Тайвань", "flag": "🇹🇼", "color": "#ef4444", "area": 36193, "data": { "1950": 7981000, "1960": 10792000, "1970": 14693000, "1980": 17848000, "1990": 20278000, "2000": 22184000, "2010": 23102000, "2020": 23816000, "2030": 24000000, "2050": 22000000, "2075": 18000000, "2100": 15000000 } },
+        { "name": "Мали", "flag": "🇲🇱", "color": "#eab308", "area": 1240192, "data": { "1950": 4310000, "1960": 5098000, "1970": 6030000, "1980": 7374000, "1990": 8469000, "2000": 10946000, "2010": 15049000, "2020": 20250000, "2030": 27000000, "2050": 46000000, "2075": 72000000, "2100": 95000000 } },
+        { "name": "Буркина-Фасо", "flag": "🇧🇫", "color": "#dc2626", "area": 274200, "data": { "1950": 4252000, "1960": 4829000, "1970": 5624000, "1980": 6822000, "1990": 8811000, "2000": 11607000, "2010": 15605000, "2020": 20903000, "2030": 28000000, "2050": 46000000, "2075": 70000000, "2100": 90000000 } },
+        { "name": "Сирия", "flag": "🇸🇾", "color": "#000000", "area": 185180, "data": { "1950": 3413000, "1960": 4573000, "1970": 6319000, "1980": 8931000, "1990": 12446000, "2000": 16410000, "2010": 21018000, "2020": 17500000, "2030": 24000000, "2050": 35000000, "2075": 42000000, "2100": 45000000 } },
+        { "name": "Шри-Ланка", "flag": "🇱🇰", "color": "#f97316", "area": 65610, "data": { "1950": 7971000, "1960": 9882000, "1970": 12486000, "1980": 15041000, "1990": 17337000, "2000": 18765000, "2010": 20111000, "2020": 21413000, "2030": 22000000, "2050": 21000000, "2075": 18000000, "2100": 15000000 } },
+        { "name": "Малави", "flag": "🇲🇼", "color": "#000000", "area": 118484, "data": { "1950": 2953000, "1960": 3525000, "1970": 4504000, "1980": 6223000, "1990": 9535000, "2000": 11229000, "2010": 15013000, "2020": 19129000, "2030": 26000000, "2050": 42000000, "2075": 65000000, "2100": 85000000 } },
+        { "name": "Замбия", "flag": "🇿🇲", "color": "#16a34a", "area": 752612, "data": { "1950": 2316000, "1960": 3044000, "1970": 4178000, "1980": 5851000, "1990": 8036000, "2000": 10531000, "2010": 13792000, "2020": 18383000, "2030": 25000000, "2050": 41000000, "2075": 62000000, "2100": 80000000 } },
+        { "name": "Румыния", "flag": "🇷🇴", "color": "#eab308", "area": 238391, "data": { "1950": 16235000, "1960": 18403000, "1970": 20252000, "1980": 22201000, "1990": 23206000, "2000": 22143000, "2010": 20246000, "2020": 19237000, "2030": 18000000, "2050": 15000000, "2075": 12000000, "2100": 10000000 } },
+        { "name": "Чили", "flag": "🇨🇱", "color": "#ef4444", "area": 756102, "data": { "1950": 6143000, "1960": 7695000, "1970": 9560000, "1980": 11266000, "1990": 13242000, "2000": 15342000, "2010": 17062000, "2020": 19116000, "2030": 20000000, "2050": 21000000, "2075": 20000000, "2100": 18000000 } },
+        { "name": "Казахстан", "flag": "🇰🇿", "color": "#0ea5e9", "area": 2724900, "data": { "1950": 6702000, "1960": 9996000, "1970": 13106000, "1980": 14905000, "1990": 16401000, "2000": 14883000, "2010": 16321000, "2020": 18754000, "2030": 20000000, "2050": 23000000, "2075": 25000000, "2100": 26000000 } },
+        { "name": "Чад", "flag": "🇹🇩", "color": "#1d4ed8", "area": 1284000, "data": { "1950": 2502000, "1960": 3001000, "1970": 3615000, "1980": 4510000, "1990": 5957000, "2000": 8342000, "2010": 11887000, "2020": 16425000, "2030": 23000000, "2050": 38000000, "2075": 58000000, "2100": 75000000 } },
+        { "name": "Эквадор", "flag": "🇪🇨", "color": "#eab308", "area": 283561, "data": { "1950": 3470000, "1960": 4545000, "1970": 6023000, "1980": 7975000, "1990": 10217000, "2000": 12628000, "2010": 15013000, "2020": 17643000, "2030": 19000000, "2050": 22000000, "2075": 23000000, "2100": 21000000 } },
+        { "name": "Сомали", "flag": "🇸🇴", "color": "#3b82f6", "area": 637657, "data": { "1950": 2264000, "1960": 2755000, "1970": 3450000, "1980": 5794000, "1990": 7181000, "2000": 8876000, "2010": 12043000, "2020": 15893000, "2030": 22000000, "2050": 36000000, "2075": 55000000, "2100": 70000000 } },
+        { "name": "Гватемала", "flag": "🇬🇹", "color": "#0ea5e9", "area": 108889, "data": { "1950": 3146000, "1960": 4208000, "1970": 5354000, "1980": 6958000, "1990": 9264000, "2000": 11650000, "2010": 14630000, "2020": 17915000, "2030": 21000000, "2050": 26000000, "2075": 30000000, "2100": 32000000 } },
+        { "name": "Сенегал", "flag": "🇸🇳", "color": "#16a34a", "area": 196722, "data": { "1950": 2487000, "1960": 3206000, "1970": 4317000, "1980": 5592000, "1990": 7532000, "2000": 9865000, "2010": 12921000, "2020": 16743000, "2030": 22000000, "2050": 35000000, "2075": 52000000, "2100": 68000000 } },
+        { "name": "Нидерланды", "flag": "🇳🇱", "color": "#f97316", "area": 41543, "data": { "1950": 10042000, "1960": 11486000, "1970": 13038000, "1980": 14149000, "1990": 14951000, "2000": 15925000, "2010": 16615000, "2020": 17134000, "2030": 17500000, "2050": 17500000, "2075": 16500000, "2100": 15500000 } },
+        { "name": "Камбоджа", "flag": "🇰🇭", "color": "#ef4444", "area": 181035, "data": { "1950": 4432000, "1960": 5722000, "1970": 6996000, "1980": 6606000, "1990": 8976000, "2000": 12152000, "2010": 14312000, "2020": 16718000, "2030": 18500000, "2050": 21000000, "2075": 22000000, "2100": 20000000 } },
+        { "name": "Зимбабве", "flag": "🇿🇼", "color": "#16a34a", "area": 390757, "data": { "1950": 2746000, "1960": 3752000, "1970": 5206000, "1980": 7049000, "1990": 10183000, "2000": 11834000, "2010": 12697000, "2020": 14862000, "2030": 18000000, "2050": 24000000, "2075": 30000000, "2100": 32000000 } },
+        { "name": "Гвинея", "flag": "🇬🇳", "color": "#ef4444", "area": 245857, "data": { "1950": 3093000, "1960": 3576000, "1970": 4220000, "1980": 4511000, "1990": 6032000, "2000": 8344000, "2010": 10793000, "2020": 13132000, "2030": 18000000, "2050": 28000000, "2075": 42000000, "2100": 55000000 } },
+        { "name": "Руанда", "flag": "🇷🇼", "color": "#0ea5e9", "area": 26338, "data": { "1950": 2186000, "1960": 2933000, "1970": 3769000, "1980": 5153000, "1990": 7288000, "2000": 7933000, "2010": 10036000, "2020": 12952000, "2030": 16000000, "2050": 22000000, "2075": 28000000, "2100": 30000000 } },
+        { "name": "Бенин", "flag": "🇧🇯", "color": "#eab308", "area": 114763, "data": { "1950": 2255000, "1960": 2431000, "1970": 2908000, "1980": 3717000, "1990": 4978000, "2000": 6865000, "2010": 9199000, "2020": 12123000, "2030": 16000000, "2050": 25000000, "2075": 38000000, "2100": 48000000 } },
+        { "name": "Бурунди", "flag": "🇧🇮", "color": "#dc2626", "area": 27834, "data": { "1950": 2308000, "1960": 2797000, "1970": 3456000, "1980": 4129000, "1990": 5439000, "2000": 6373000, "2010": 8766000, "2020": 11890000, "2030": 16000000, "2050": 25000000, "2075": 38000000, "2100": 48000000 } },
+        { "name": "Тунис", "flag": "🇹🇳", "color": "#ef4444", "area": 163610, "data": { "1950": 3605000, "1960": 4220000, "1970": 5127000, "1980": 6368000, "1990": 8214000, "2000": 9699000, "2010": 10635000, "2020": 11818000, "2030": 12500000, "2050": 13500000, "2075": 13000000, "2100": 12000000 } },
+        { "name": "Боливия", "flag": "🇧🇴", "color": "#16a34a", "area": 1098581, "data": { "1950": 3110000, "1960": 3693000, "1970": 4505000, "1980": 5589000, "1990": 6853000, "2000": 8339000, "2010": 10048000, "2020": 11673000, "2030": 13500000, "2050": 16000000, "2075": 18000000, "2100": 18500000 } },
+        { "name": "Бельгия", "flag": "🇧🇪", "color": "#000000", "area": 30528, "data": { "1950": 8639000, "1960": 9143000, "1970": 9637000, "1980": 9846000, "1990": 9967000, "2000": 10251000, "2010": 10895000, "2020": 11589000, "2030": 12000000, "2050": 12500000, "2075": 12800000, "2100": 13000000 } },
+        { "name": "Гаити", "flag": "🇭🇹", "color": "#1e3a8a", "area": 27750, "data": { "1950": 3221000, "1960": 3865000, "1970": 4710000, "1980": 5683000, "1990": 7109000, "2000": 8549000, "2010": 9896000, "2020": 11402000, "2030": 12500000, "2050": 14000000, "2075": 14500000, "2100": 13000000 } },
+        { "name": "Куба", "flag": "🇨🇺", "color": "#0ea5e9", "area": 109884, "data": { "1950": 5920000, "1960": 7141000, "1970": 8545000, "1980": 9825000, "1990": 10582000, "2000": 11139000, "2010": 11303000, "2020": 11326000, "2030": 11000000, "2050": 10000000, "2075": 8500000, "2100": 7000000 } },
+        { "name": "Южный Судан", "flag": "🇸🇸", "color": "#16a34a", "area": 644329, "data": { "1950": 2482000, "1960": 2865000, "1970": 3433000, "1980": 4627000, "1990": 5360000, "2000": 6199000, "2010": 10067000, "2020": 11193000, "2030": 14000000, "2050": 20000000, "2075": 28000000, "2100": 35000000 } },
+        { "name": "Доминиканская Респ.", "flag": "🇩🇴", "color": "#1d4ed8", "area": 48671, "data": { "1950": 2364000, "1960": 3293000, "1970": 4524000, "1980": 5831000, "1990": 7154000, "2000": 8562000, "2010": 9801000, "2020": 10847000, "2030": 11800000, "2050": 13000000, "2075": 13500000, "2100": 12500000 } },
+        { "name": "Чехия", "flag": "🇨🇿", "color": "#ef4444", "area": 78865, "data": { "1950": 8925000, "1960": 9659000, "1970": 9831000, "1980": 10323000, "1990": 10363000, "2000": 10272000, "2010": 10530000, "2020": 10708000, "2030": 10500000, "2050": 10200000, "2075": 9500000, "2100": 8500000 } },
+        { "name": "Греция", "flag": "🇬🇷", "color": "#3b82f6", "area": 131957, "data": { "1950": 7566000, "1960": 8327000, "1970": 8792000, "1980": 9642000, "1990": 10161000, "2000": 10805000, "2010": 11151000, "2020": 10423000, "2030": 10000000, "2050": 9200000, "2075": 8000000, "2100": 7000000 } },
+        { "name": "Иордания", "flag": "🇯🇴", "color": "#16a34a", "area": 89342, "data": { "1950": 481000, "1960": 932000, "1970": 1622000, "1980": 2368000, "1990": 3422000, "2000": 5122000, "2010": 7168000, "2020": 10203000, "2030": 12000000, "2050": 15000000, "2075": 17000000, "2100": 18000000 } },
+        { "name": "Португалия", "flag": "🇵🇹", "color": "#16a34a", "area": 92212, "data": { "1950": 8416000, "1960": 8980000, "1970": 8680000, "1980": 9768000, "1990": 9970000, "2000": 10336000, "2010": 10589000, "2020": 10196000, "2030": 10000000, "2050": 9200000, "2075": 8200000, "2100": 7500000 } },
+        { "name": "Азербайджан", "flag": "🇦🇿", "color": "#0ea5e9", "area": 86600, "data": { "1950": 2928000, "1960": 3894000, "1970": 5171000, "1980": 6150000, "1990": 7215000, "2000": 8072000, "2010": 9054000, "2020": 10139000, "2030": 11000000, "2050": 11500000, "2075": 11000000, "2100": 10000000 } },
+        { "name": "Швеция", "flag": "🇸🇪", "color": "#eab308", "area": 450295, "data": { "1950": 7014000, "1960": 7484000, "1970": 8042000, "1980": 8310000, "1990": 8558000, "2000": 8872000, "2010": 9378000, "2020": 10099000, "2030": 10800000, "2050": 11500000, "2075": 12500000, "2100": 13500000 } },
+        { "name": "Гондурас", "flag": "🇭🇳", "color": "#3b82f6", "area": 112492, "data": { "1950": 1546000, "1960": 2043000, "1970": 2727000, "1980": 3681000, "1990": 4972000, "2000": 6554000, "2010": 8282000, "2020": 9904000, "2030": 11500000, "2050": 14000000, "2075": 15500000, "2100": 15000000 } },
+        { "name": "ОАЭ", "flag": "🇦🇪", "color": "#059669", "area": 83600, "data": { "1950": 70000, "1960": 92000, "1970": 234000, "1980": 1016000, "1990": 1828000, "2000": 3134000, "2010": 8549000, "2020": 9890000, "2030": 11000000, "2050": 13000000, "2075": 14500000, "2100": 15000000 } },
+        { "name": "Венгрия", "flag": "🇭🇺", "color": "#16a34a", "area": 93028, "data": { "1950": 9338000, "1960": 9983000, "1970": 10338000, "1980": 10711000, "1990": 10380000, "2000": 10221000, "2010": 10000000, "2020": 9660000, "2030": 9200000, "2050": 8500000, "2075": 7500000, "2100": 6500000 } },
+        { "name": "Таджикистан", "flag": "🇹🇯", "color": "#ef4444", "area": 143100, "data": { "1950": 1531000, "1960": 2082000, "1970": 2930000, "1980": 3968000, "1990": 5304000, "2000": 6216000, "2010": 7526000, "2020": 9537000, "2030": 11500000, "2050": 15000000, "2075": 18000000, "2100": 19000000 } },
+        { "name": "Беларусь", "flag": "🇧🇾", "color": "#dc2626", "area": 207600, "data": { "1950": 7745000, "1960": 8198000, "1970": 9039000, "1980": 9643000, "1990": 10189000, "2000": 9965000, "2010": 9481000, "2020": 9449000, "2030": 9000000, "2050": 8200000, "2075": 7200000, "2100": 6500000 } },
+        { "name": "Австрия", "flag": "🇦🇹", "color": "#ef4444", "area": 83871, "data": { "1950": 6936000, "1960": 7047000, "1970": 7467000, "1980": 7549000, "1990": 7677000, "2000": 8011000, "2010": 8363000, "2020": 8907000, "2030": 9200000, "2050": 9500000, "2075": 9200000, "2100": 8800000 } },
+        { "name": "Папуа Новая Гвинея", "flag": "🇵🇬", "color": "#000000", "area": 462840, "data": { "1950": 1729000, "1960": 1957000, "1970": 2420000, "1980": 3154000, "1990": 4181000, "2000": 5572000, "2010": 7306000, "2020": 8947000, "2030": 11000000, "2050": 15000000, "2075": 19000000, "2100": 22000000 } },
+        { "name": "Сербия", "flag": "🇷🇸", "color": "#0ea5e9", "area": 88361, "data": { "1950": 6732000, "1960": 7616000, "1970": 8168000, "1980": 8868000, "1990": 9520000, "2000": 9488000, "2010": 9034000, "2020": 8737000, "2030": 8200000, "2050": 7200000, "2075": 6000000, "2100": 5000000 } },
+        { "name": "Израиль", "flag": "🇮🇱", "color": "#3b82f6", "area": 22072, "data": { "1950": 1258000, "1960": 2114000, "1970": 2884000, "1980": 3836000, "1990": 4660000, "2000": 6014000, "2010": 7624000, "2020": 8655000, "2030": 10000000, "2050": 13000000, "2075": 16000000, "2100": 18000000 } }
+    ];
+
+    // 101-150
+    const countries101to150 = [
+        { "name": "Швейцария", "flag": "🇨🇭", "color": "#ef4444", "area": 41284, "data": { "1950": 4668000, "1960": 5327000, "1970": 6181000, "1980": 6319000, "1990": 6715000, "2000": 7184000, "2010": 7804000, "2020": 8654000, "2030": 9200000, "2050": 10000000, "2075": 10500000, "2100": 10800000 } },
+        { "name": "Того", "flag": "🇹🇬", "color": "#16a34a", "area": 56785, "data": { "1950": 1395000, "1960": 1580000, "1970": 2115000, "1980": 2720000, "1990": 3762000, "2000": 4924000, "2010": 6422000, "2020": 8278000, "2030": 11000000, "2050": 17000000, "2075": 25000000, "2100": 32000000 } },
+        { "name": "Сьерра-Леоне", "flag": "🇸🇱", "color": "#3b82f6", "area": 71740, "data": { "1950": 2041000, "1960": 2297000, "1970": 2697000, "1980": 3317000, "1990": 4311000, "2000": 4564000, "2010": 6450000, "2020": 7976000, "2030": 10000000, "2050": 14000000, "2075": 19000000, "2100": 22000000 } },
+        { "name": "Гонконг", "flag": "🇭🇰", "color": "#ef4444", "area": 1104, "data": { "1950": 1974000, "1960": 3075000, "1970": 3959000, "1980": 5063000, "1990": 5704000, "2000": 6665000, "2010": 7024000, "2020": 7496000, "2030": 7800000, "2050": 8000000, "2075": 7500000, "2100": 7000000 } },
+        { "name": "Лаос", "flag": "🇱🇦", "color": "#0ea5e9", "area": 236800, "data": { "1950": 1682000, "1960": 2120000, "1970": 2688000, "1980": 3258000, "1990": 4258000, "2000": 5323000, "2010": 6251000, "2020": 7275000, "2030": 8500000, "2050": 10500000, "2075": 11500000, "2100": 11000000 } },
+        { "name": "Парагвай", "flag": "🇵🇾", "color": "#ef4444", "area": 406752, "data": { "1950": 1473000, "1960": 1902000, "1970": 2482000, "1980": 3195000, "1990": 4247000, "2000": 5359000, "2010": 6248000, "2020": 7132000, "2030": 8000000, "2050": 9500000, "2075": 10500000, "2100": 10000000 } },
+        { "name": "Болгария", "flag": "🇧🇬", "color": "#16a34a", "area": 110994, "data": { "1950": 7250000, "1960": 7867000, "1970": 8489000, "1980": 8846000, "1990": 8718000, "2000": 7997000, "2010": 7395000, "2020": 6927000, "2030": 6200000, "2050": 5200000, "2075": 4200000, "2100": 3500000 } },
+        { "name": "Ливия", "flag": "🇱🇾", "color": "#16a34a", "area": 1759540, "data": { "1950": 1124000, "1960": 1435000, "1970": 2133000, "1980": 3217000, "1990": 4441000, "2000": 5360000, "2010": 6193000, "2020": 6871000, "2030": 7800000, "2050": 9000000, "2075": 9500000, "2100": 9000000 } },
+        { "name": "Ливан", "flag": "🇱🇧", "color": "#16a34a", "area": 10452, "data": { "1950": 1334000, "1960": 1804000, "1970": 2297000, "1980": 2617000, "1990": 2785000, "2000": 3842000, "2010": 4337000, "2020": 6825000, "2030": 6000000, "2050": 6500000, "2075": 6200000, "2100": 5500000 } },
+        { "name": "Никарагуа", "flag": "🇳🇮", "color": "#0ea5e9", "area": 130373, "data": { "1950": 1294000, "1960": 1775000, "1970": 2400000, "1980": 3280000, "1990": 4141000, "2000": 5123000, "2010": 5822000, "2020": 6624000, "2030": 7500000, "2050": 8800000, "2075": 9500000, "2100": 9000000 } },
+        { "name": "Кыргызстан", "flag": "🇰🇬", "color": "#ef4444", "area": 199951, "data": { "1950": 1740000, "1960": 2172000, "1970": 2963000, "1980": 3627000, "1990": 4394000, "2000": 4898000, "2010": 5449000, "2020": 6524000, "2030": 7500000, "2050": 9000000, "2075": 10500000, "2100": 11000000 } },
+        { "name": "Сальвадор", "flag": "🇸🇻", "color": "#3b82f6", "area": 21041, "data": { "1950": 2200000, "1960": 2769000, "1970": 3656000, "1980": 4600000, "1990": 5268000, "2000": 5894000, "2010": 6183000, "2020": 6486000, "2030": 6800000, "2050": 7000000, "2075": 6500000, "2100": 5500000 } },
+        { "name": "Туркменистан", "flag": "🇹🇲", "color": "#16a34a", "area": 491210, "data": { "1950": 1210000, "1960": 1584000, "1970": 2188000, "1980": 2860000, "1990": 3667000, "2000": 4501000, "2010": 5087000, "2020": 6031000, "2030": 7000000, "2050": 8500000, "2075": 9500000, "2100": 9800000 } },
+        { "name": "Сингапур", "flag": "🇸🇬", "color": "#ef4444", "area": 728, "data": { "1950": 1022000, "1960": 1646000, "1970": 2074000, "1980": 2413000, "1990": 3016000, "2000": 4027000, "2010": 5076000, "2020": 5850000, "2030": 6200000, "2050": 6500000, "2075": 6000000, "2100": 5200000 } },
+        { "name": "Дания", "flag": "🇩🇰", "color": "#dc2626", "area": 42933, "data": { "1950": 4268000, "1960": 4578000, "1970": 4928000, "1980": 5122000, "1990": 5139000, "2000": 5339000, "2010": 5554000, "2020": 5792000, "2030": 6000000, "2050": 6300000, "2075": 6600000, "2100": 6800000 } },
+        { "name": "Финляндия", "flag": "🇫🇮", "color": "#0ea5e9", "area": 338145, "data": { "1950": 4008000, "1960": 4429000, "1970": 4606000, "1980": 4779000, "1990": 4986000, "2000": 5173000, "2010": 5363000, "2020": 5540000, "2030": 5600000, "2050": 5700000, "2075": 5800000, "2100": 5800000 } },
+        { "name": "Конго", "flag": "🇨🇬", "color": "#16a34a", "area": 342000, "data": { "1950": 808000, "1960": 1013000, "1970": 1335000, "1980": 1787000, "1990": 2368000, "2000": 3135000, "2010": 4353000, "2020": 5518000, "2030": 7200000, "2050": 11500000, "2075": 17000000, "2100": 22000000 } },
+        { "name": "Словакия", "flag": "🇸🇰", "color": "#3b82f6", "area": 49035, "data": { "1950": 3436000, "1960": 4182000, "1970": 4537000, "1980": 4976000, "1990": 5287000, "2000": 5398000, "2010": 5396000, "2020": 5459000, "2030": 5300000, "2050": 4900000, "2075": 4200000, "2100": 3500000 } },
+        { "name": "Норвегия", "flag": "🇳🇴", "color": "#ef4444", "area": 323802, "data": { "1950": 3265000, "1960": 3581000, "1970": 3875000, "1980": 4085000, "1990": 4241000, "2000": 4490000, "2010": 4889000, "2020": 5421000, "2030": 5800000, "2050": 6500000, "2075": 7200000, "2100": 7800000 } },
+        { "name": "Оман", "flag": "🇴🇲", "color": "#ef4444", "area": 309500, "data": { "1950": 456000, "1960": 557000, "1970": 723000, "1980": 1154000, "1990": 1811000, "2000": 2264000, "2010": 3041000, "2020": 5106000, "2030": 6000000, "2050": 7500000, "2075": 8500000, "2100": 9000000 } },
+        { "name": "Палестина", "flag": "🇵🇸", "color": "#16a34a", "area": 6020, "data": { "1950": 931000, "1960": 1069000, "1970": 1125000, "1980": 1506000, "1990": 2101000, "2000": 3224000, "2010": 4046000, "2020": 5101000, "2030": 6500000, "2050": 9000000, "2075": 11500000, "2100": 13000000 } },
+        { "name": "Коста-Рика", "flag": "🇨🇷", "color": "#1e3a8a", "area": 51100, "data": { "1950": 966000, "1960": 1333000, "1970": 1845000, "1980": 2389000, "1990": 3095000, "2000": 3962000, "2010": 4577000, "2020": 5094000, "2030": 5500000, "2050": 6000000, "2075": 6200000, "2100": 5800000 } },
+        { "name": "Либерия", "flag": "🇱🇷", "color": "#ef4444", "area": 111369, "data": { "1950": 824000, "1960": 1058000, "1970": 1400000, "1980": 1888000, "1990": 2078000, "2000": 2848000, "2010": 3948000, "2020": 5057000, "2030": 6500000, "2050": 9500000, "2075": 13500000, "2100": 17000000 } },
+        { "name": "Ирландия", "flag": "🇮🇪", "color": "#16a34a", "area": 70273, "data": { "1950": 2963000, "1960": 2828000, "1970": 2950000, "1980": 3401000, "1990": 3513000, "2000": 3789000, "2010": 4549000, "2020": 4937000, "2030": 5500000, "2050": 6200000, "2075": 7000000, "2100": 7500000 } },
+        { "name": "ЦАР", "flag": "🇨🇫", "color": "#eab308", "area": 622984, "data": { "1950": 1327000, "1960": 1504000, "1970": 1830000, "1980": 2273000, "1990": 2802000, "2000": 3640000, "2010": 4349000, "2020": 4829000, "2030": 6500000, "2050": 10000000, "2075": 14000000, "2100": 18000000 } },
+        { "name": "Новая Зеландия", "flag": "🇳🇿", "color": "#1d4ed8", "area": 268021, "data": { "1950": 1908000, "1960": 2371000, "1970": 2828000, "1980": 3148000, "1990": 3397000, "2000": 3858000, "2010": 4350000, "2020": 4822000, "2030": 5200000, "2050": 6000000, "2075": 6800000, "2100": 7200000 } },
+        { "name": "Мавритания", "flag": "🇲🇷", "color": "#16a34a", "area": 1030700, "data": { "1950": 655000, "1960": 858000, "1970": 1133000, "1980": 1533000, "1990": 2046000, "2000": 2709000, "2010": 3494000, "2020": 4649000, "2030": 6000000, "2050": 9500000, "2075": 14000000, "2100": 18000000 } },
+        { "name": "Панама", "flag": "🇵🇦", "color": "#ef4444", "area": 75417, "data": { "1950": 860000, "1960": 1135000, "1970": 1519000, "1980": 1978000, "1990": 2470000, "2000": 3030000, "2010": 3642000, "2020": 4314000, "2030": 4800000, "2050": 5800000, "2075": 6500000, "2100": 6500000 } },
+        { "name": "Кувейт", "flag": "🇰🇼", "color": "#16a34a", "area": 17818, "data": { "1950": 152000, "1960": 269000, "1970": 747000, "1980": 1374000, "1990": 2059000, "2000": 2050000, "2010": 2998000, "2020": 4270000, "2030": 5000000, "2050": 6000000, "2075": 6800000, "2100": 7000000 } },
+        { "name": "Хорватия", "flag": "🇭🇷", "color": "#dc2626", "area": 56594, "data": { "1950": 3850000, "1960": 4140000, "1970": 4422000, "1980": 4600000, "1990": 4776000, "2000": 4428000, "2010": 4316000, "2020": 4105000, "2030": 3800000, "2050": 3300000, "2075": 2800000, "2100": 2400000 } },
+        { "name": "Молдова", "flag": "🇲🇩", "color": "#0ea5e9", "area": 33846, "data": { "1950": 2341000, "1960": 3004000, "1970": 3594000, "1980": 3996000, "1990": 4364000, "2000": 4118000, "2010": 3573000, "2020": 3153000, "2030": 2900000, "2050": 2400000, "2075": 1800000, "2100": 1400000 } },
+        { "name": "Грузия", "flag": "🇬🇪", "color": "#ef4444", "area": 69700, "data": { "1950": 3527000, "1960": 4153000, "1970": 4674000, "1980": 5055000, "1990": 5419000, "2000": 4363000, "2010": 4068000, "2020": 3989000, "2030": 3800000, "2050": 3400000, "2075": 2800000, "2100": 2300000 } },
+        { "name": "Эритрея", "flag": "🇪🇷", "color": "#16a34a", "area": 117600, "data": { "1950": 1142000, "1960": 1397000, "1970": 1821000, "1980": 2390000, "1990": 3156000, "2000": 2392000, "2010": 3170000, "2020": 3546000, "2030": 4500000, "2050": 6500000, "2075": 8500000, "2100": 10000000 } },
+        { "name": "Уругвай", "flag": "🇺🇾", "color": "#0ea5e9", "area": 176215, "data": { "1950": 2238000, "1960": 2538000, "1970": 2809000, "1980": 2915000, "1990": 3109000, "2000": 3319000, "2010": 3359000, "2020": 3473000, "2030": 3500000, "2050": 3600000, "2075": 3500000, "2100": 3200000 } },
+        { "name": "Босния и Герцеговина", "flag": "🇧🇦", "color": "#eab308", "area": 51197, "data": { "1950": 2661000, "1960": 3225000, "1970": 3761000, "1980": 4179000, "1990": 4463000, "2000": 3766000, "2010": 3722000, "2020": 3280000, "2030": 3000000, "2050": 2600000, "2075": 2100000, "2100": 1700000 } },
+        { "name": "Монголия", "flag": "🇲🇳", "color": "#dc2626", "area": 1564110, "data": { "1950": 778000, "1960": 955000, "1970": 1251000, "1980": 1662000, "1990": 2184000, "2000": 2397000, "2010": 2712000, "2020": 3278000, "2030": 3700000, "2050": 4500000, "2075": 5200000, "2100": 5500000 } },
+        { "name": "Армения", "flag": "🇦🇲", "color": "#ef4444", "area": 29743, "data": { "1950": 1353000, "1960": 1867000, "1970": 2518000, "1980": 3096000, "1990": 3538000, "2000": 3069000, "2010": 2877000, "2020": 2963000, "2030": 2900000, "2050": 2600000, "2075": 2100000, "2100": 1700000 } },
+        { "name": "Ямайка", "flag": "🇯🇲", "color": "#eab308", "area": 10991, "data": { "1950": 1402000, "1960": 1628000, "1970": 1868000, "1980": 2132000, "1990": 2420000, "2000": 2581000, "2010": 2810000, "2020": 2961000, "2030": 3000000, "2050": 2900000, "2075": 2500000, "2100": 2000000 } },
+        { "name": "Катар", "flag": "🇶🇦", "color": "#7f1d1d", "area": 11586, "data": { "1950": 25000, "1960": 47000, "1970": 108000, "1980": 223000, "1990": 473000, "2000": 592000, "2010": 1713000, "2020": 2881000, "2030": 3200000, "2050": 3800000, "2075": 4200000, "2100": 4300000 } },
+        { "name": "Албания", "flag": "🇦🇱", "color": "#ef4444", "area": 28748, "data": { "1950": 1263000, "1960": 1608000, "1970": 2135000, "1980": 2671000, "1990": 3286000, "2000": 3121000, "2010": 2913000, "2020": 2877000, "2030": 2800000, "2050": 2500000, "2075": 1900000, "2100": 1400000 } },
+        { "name": "Литва", "flag": "🇱🇹", "color": "#facc15", "area": 65300, "data": { "1950": 2567000, "1960": 2778000, "1970": 3128000, "1980": 3413000, "1990": 3698000, "2000": 3499000, "2010": 3097000, "2020": 2722000, "2030": 2500000, "2050": 2100000, "2075": 1700000, "2100": 1400000 } },
+        { "name": "Намибия", "flag": "🇳🇦", "color": "#1d4ed8", "area": 825615, "data": { "1950": 485000, "1960": 602000, "1970": 782000, "1980": 1013000, "1990": 1414000, "2000": 1898000, "2010": 2118000, "2020": 2540000, "2030": 3000000, "2050": 4200000, "2075": 5500000, "2100": 6300000 } },
+        { "name": "Гамбия", "flag": "🇬🇲", "color": "#dc2626", "area": 11295, "data": { "1950": 271000, "1960": 367000, "1970": 476000, "1980": 638000, "1990": 930000, "2000": 1317000, "2010": 1802000, "2020": 2416000, "2030": 3200000, "2050": 5200000, "2075": 7800000, "2100": 10000000 } },
+        { "name": "Ботсвана", "flag": "🇧🇼", "color": "#0ea5e9", "area": 581730, "data": { "1950": 412000, "1960": 502000, "1970": 618000, "1980": 900000, "1990": 1286000, "2000": 1643000, "2010": 1987000, "2020": 2351000, "2030": 2700000, "2050": 3500000, "2075": 4200000, "2100": 4600000 } },
+        { "name": "Габон", "flag": "🇬🇦", "color": "#16a34a", "area": 267668, "data": { "1950": 469000, "1960": 486000, "1970": 589000, "1980": 728000, "1990": 952000, "2000": 1228000, "2010": 1624000, "2020": 2225000, "2030": 2800000, "2050": 4200000, "2075": 5800000, "2100": 7000000 } },
+        { "name": "Лесото", "flag": "🇱🇸", "color": "#1e3a8a", "area": 30355, "data": { "1950": 733000, "1960": 855000, "1970": 1042000, "1980": 1308000, "1990": 1603000, "2000": 1869000, "2010": 2008000, "2020": 2142000, "2030": 2300000, "2050": 2800000, "2075": 3200000, "2100": 3400000 } },
+        { "name": "Северная Македония", "flag": "🇲🇰", "color": "#ef4444", "area": 25713, "data": { "1950": 1254000, "1960": 1381000, "1970": 1640000, "1980": 1906000, "1990": 1994000, "2000": 2034000, "2010": 2060000, "2020": 2083000, "2030": 2050000, "2050": 1900000, "2075": 1600000, "2100": 1300000 } },
+        { "name": "Словения", "flag": "🇸🇮", "color": "#3b82f6", "area": 20273, "data": { "1950": 1473000, "1960": 1584000, "1970": 1669000, "1980": 1835000, "1990": 1996000, "2000": 1988000, "2010": 2046000, "2020": 2078000, "2030": 2050000, "2050": 1950000, "2075": 1750000, "2100": 1600000 } },
+        { "name": "Гвинея-Бисау", "flag": "🇬🇼", "color": "#ef4444", "area": 36125, "data": { "1950": 535000, "1960": 616000, "1970": 737000, "1980": 801000, "1990": 1017000, "2000": 1243000, "2010": 1555000, "2020": 1967000, "2030": 2400000, "2050": 3500000, "2075": 4800000, "2100": 5800000 } },
+        { "name": "Латвия", "flag": "🇱🇻", "color": "#991b1b", "area": 64589, "data": { "1950": 1943000, "1960": 2120000, "1970": 2365000, "1980": 2514000, "1990": 2663000, "2000": 2367000, "2010": 2119000, "2020": 1901000, "2030": 1750000, "2050": 1450000, "2075": 1150000, "2100": 950000 } }
+    ];
+
+    const defaultCountriesData = [...countriesTop50, ...countries51to100, ...countries101to150];
+
+    /* =========================================
+       ДАННЫЕ: ГОРОДА
+       ========================================= */
+    const defaultCitiesData = [
+        { "name": "Токио", "flag": "🇯🇵", "color": "#cbd5e1", "area": 2194, "data": { "1950": 11274000, "1960": 17865000, "1970": 23297000, "1980": 28279000, "1990": 32530000, "2000": 34450000, "2010": 36849000, "2020": 37393000, "2030": 36500000, "2050": 32000000, "2075": 28000000, "2100": 24000000 } },
+        { "name": "Осака", "flag": "🇯🇵", "color": "#94a3b8", "area": 223, "data": { "1950": 7005000, "1960": 10650000, "1970": 15000000, "1980": 17000000, "1990": 18300000, "2000": 18660000, "2010": 19200000, "2020": 19165000, "2030": 18500000, "2050": 16000000, "2075": 13000000, "2100": 10000000 } },
+        { "name": "Дели", "flag": "🇮🇳", "color": "#f97316", "area": 1484, "data": { "1950": 1369000, "1960": 2283000, "1970": 3531000, "1980": 5562000, "1990": 8500000, "2000": 15720000, "2010": 22150000, "2020": 30290000, "2030": 38900000, "2050": 50000000, "2075": 58000000, "2100": 60000000 } },
+        { "name": "Мумбаи", "flag": "🇮🇳", "color": "#ea580c", "area": 603, "data": { "1950": 2857000, "1960": 4060000, "1970": 5811000, "1980": 8658000, "1990": 12400000, "2000": 16080000, "2010": 19400000, "2020": 20411000, "2030": 24500000, "2050": 32000000, "2075": 38000000, "2100": 42000000 } },
+        { "name": "Шанхай", "flag": "🇨🇳", "color": "#ef4444", "area": 6340, "data": { "1950": 4288000, "1960": 6800000, "1970": 6000000, "1980": 6000000, "1990": 7800000, "2000": 13900000, "2010": 19900000, "2020": 27058000, "2030": 32000000, "2050": 36000000, "2075": 34000000, "2100": 31000000 } },
+        { "name": "Пекин", "flag": "🇨🇳", "color": "#dc2626", "area": 16410, "data": { "1950": 1668000, "1960": 4000000, "1970": 4500000, "1980": 5500000, "1990": 6700000, "2000": 10800000, "2010": 16400000, "2020": 20462000, "2030": 24000000, "2050": 28000000, "2075": 26000000, "2100": 22000000 } },
+        { "name": "Нью-Йорк", "flag": "🇺🇸", "color": "#3b82f6", "area": 783, "data": { "1950": 12338000, "1960": 14164000, "1970": 16206000, "1980": 15600000, "1990": 16000000, "2000": 17800000, "2010": 18500000, "2020": 18804000, "2030": 19500000, "2050": 21000000, "2075": 23000000, "2100": 25000000 } },
+        { "name": "Сан-Паулу", "flag": "🇧🇷", "color": "#eab308", "area": 1521, "data": { "1950": 2334000, "1960": 4600000, "1970": 8100000, "1980": 12000000, "1990": 14800000, "2000": 17100000, "2010": 19600000, "2020": 22043000, "2030": 24000000, "2050": 26000000, "2075": 24000000, "2100": 20000000 } },
+        { "name": "Мехико", "flag": "🇲🇽", "color": "#14b8a6", "area": 1485, "data": { "1950": 2883000, "1960": 5400000, "1970": 8800000, "1980": 13000000, "1990": 15600000, "2000": 18400000, "2010": 20100000, "2020": 21782000, "2030": 23000000, "2050": 25000000, "2075": 24000000, "2100": 21000000 } },
+        { "name": "Джакарта", "flag": "🇮🇩", "color": "#ef0000", "area": 661, "data": { "1950": 1452000, "1960": 2800000, "1970": 4000000, "1980": 5900000, "1990": 8200000, "2000": 17000000, "2010": 25000000, "2020": 34540000, "2030": 41000000, "2050": 52000000, "2075": 58000000, "2100": 60000000 } }
+    ];
+
+    const cityDataList = [
+        { name: "Мюнхен", flag: "🇩🇪", pop2020: 1500000 }, { name: "Гамбург", flag: "🇩🇪", pop2020: 1800000 }, { name: "Варшава", flag: "🇵🇱", pop2020: 1700000 }, { name: "Стокгольм", flag: "🇸🇪", pop2020: 1600000 }, { name: "Амстердам", flag: "🇳🇱", pop2020: 1100000 },
+        { name: "Вена", flag: "🇦🇹", pop2020: 1900000 }, { name: "Брюссель", flag: "🇧🇪", pop2020: 2000000 }, { name: "Копенгаген", flag: "🇩🇰", pop2020: 1300000 }, { name: "Осло", flag: "🇳🇴", pop2020: 1000000 }, { name: "Хельсинки", flag: "🇫🇮", pop2020: 1300000 },
+        { name: "Дубай", flag: "🇦🇪", pop2020: 2900000 }, { name: "Доха", flag: "🇶🇦", pop2020: 2300000 }, { name: "Кувейт", flag: "🇰🇼", pop2020: 3000000 }, { name: "Баку", flag: "🇦🇿", pop2020: 2300000 }, { name: "Тбилиси", flag: "🇬🇪", pop2020: 1100000 },
+        { name: "Ереван", flag: "🇦🇲", pop2020: 1000000 }, { name: "Алматы", flag: "🇰🇿", pop2020: 1900000 }, { name: "Нур-Султан", flag: "🇰🇿", pop2020: 1100000 }, { name: "Ташкент", flag: "🇺🇿", pop2020: 2500000 }, { name: "Душанбе", flag: "🇹🇯", pop2020: 800000 },
+        { name: "Багдад", flag: "🇮🇶", pop2020: 7100000 }, { name: "Дамаск", flag: "🇸🇾", pop2020: 2000000 }, { name: "Бейрут", flag: "🇱🇧", pop2020: 2400000 }, { name: "Амман", flag: "🇯🇴", pop2020: 4000000 },
+        { name: "Йоханнесбург", flag: "🇿🇦", pop2020: 5700000 }, { name: "Кейптаун", flag: "🇿🇦", pop2020: 4600000 }, { name: "Дурбан", flag: "🇿🇦", pop2020: 3100000 }, { name: "Абиджан", flag: "🇨🇮", pop2020: 5200000 }, { name: "Аккра", flag: "🇬🇭", pop2020: 2500000 },
+        { name: "Дакар", flag: "🇸🇳", pop2020: 3100000 }, { name: "Бамако", flag: "🇲🇱", pop2020: 2600000 }, { name: "Конакри", flag: "🇬🇳", pop2020: 1900000 }, { name: "Фритаун", flag: "🇸🇱", pop2020: 1200000 }, { name: "Монровия", flag: "🇱🇷", pop2020: 1500000 },
+        { name: "Монреаль", flag: "🇨🇦", pop2020: 4200000 }, { name: "Ванкувер", flag: "🇨🇦", pop2020: 2600000 }, { name: "Калгари", flag: "🇨🇦", pop2020: 1500000 }, { name: "Оттава", flag: "🇨🇦", pop2020: 1300000 }, { name: "Квебек", flag: "🇨🇦", pop2020: 800000 },
+        { name: "Филадельфия", flag: "🇺🇸", pop2020: 6100000 }, { name: "Бостон", flag: "🇺🇸", pop2020: 4900000 }, { name: "Атланта", flag: "🇺🇸", pop2020: 5900000 }, { name: "Майами", flag: "🇺🇸", pop2020: 6100000 }, { name: "Сиэтл", flag: "🇺🇸", pop2020: 3900000 },
+        { name: "Тихуана", flag: "🇲🇽", pop2020: 2000000 }, { name: "Леон", flag: "🇲🇽", pop2020: 1800000 }, { name: "Пуэбла", flag: "🇲🇽", pop2020: 3100000 }, { name: "Толука", flag: "🇲🇽", pop2020: 2300000 },
+        { name: "Богота", flag: "🇨🇴", pop2020: 11000000 }, { name: "Лима", flag: "🇵🇪", pop2020: 10700000 }, { name: "Бангкок", flag: "🇹🇭", pop2020: 10500000 }, { name: "Сеул", flag: "🇰🇷", pop2020: 9900000 },
+        { name: "Луанда", flag: "🇦🇴", pop2020: 8300000 }, { name: "Хошимин", flag: "🇻🇳", pop2020: 8100000 }, { name: "Чэнду", flag: "🇨🇳", pop2020: 15000000 }, { name: "Тегеран", flag: "🇮🇷", pop2020: 9000000 },
+        { name: "Ахмедабад", flag: "🇮🇳", pop2020: 8000000 }, { name: "Куала-Лумпур", flag: "🇲🇾", pop2020: 7800000 }, { name: "Ханчжоу", flag: "🇨🇳", pop2020: 10000000 }, { name: "Сурат", flag: "🇮🇳", pop2020: 7000000 }, { name: "Сучжоу", flag: "🇨🇳", pop2020: 7000000 },
+        { name: "Эр-Рияд", flag: "🇸🇦", pop2020: 7200000 }, { name: "Дар-эс-Салам", flag: "🇹🇿", pop2020: 6700000 }, { name: "Сингапур", flag: "🇸🇬", pop2020: 5800000 }, { name: "Найроби", flag: "🇰🇪", pop2020: 4700000 },
+        { name: "Анкара", flag: "🇹🇷", pop2020: 5100000 }, { name: "Сидней", flag: "🇦🇺", pop2020: 5300000 }, { name: "Торонто", flag: "🇨🇦", pop2020: 6100000 }, { name: "Мельбурн", flag: "🇦🇺", pop2020: 5000000 }, { name: "Мадрид", flag: "🇪🇸", pop2020: 6600000 },
+        { name: "Барселона", flag: "🇪🇸", pop2020: 5500000 }, { name: "Рим", flag: "🇮🇹", pop2020: 4300000 }, { name: "Милан", flag: "🇮🇹", pop2020: 3100000 }, { name: "Афины", flag: "🇬🇷", pop2020: 3100000 }, { name: "Берлин", flag: "🇩🇪", pop2020: 3600000 },
+        { name: "Париж", flag: "🇫🇷", pop2020: 11000000 },
+        
+        { name: "Тель-Авив", flag: "🇮🇱", pop2020: 4000000 }, { name: "Иерусалим", flag: "🇮🇱", pop2020: 1200000 },
+        { name: "Будапешт", flag: "🇭🇺", pop2020: 3000000 }, { name: "Бухарест", flag: "🇷🇴", pop2020: 2400000 },
+        
+        { name: "Марсель", flag: "🇫🇷", pop2020: 1700000 }, { name: "Лион", flag: "🇫🇷", pop2020: 1700000 }, { name: "Тулуза", flag: "🇫🇷", pop2020: 1400000 }, { name: "Бордо", flag: "🇫🇷", pop2020: 1300000 }, { name: "Лилль", flag: "🇫🇷", pop2020: 1100000 },
+        
+        { name: "Даллас", flag: "🇺🇸", pop2020: 7600000 }, { name: "Хьюстон", flag: "🇺🇸", pop2020: 7100000 }, { name: "Вашингтон", flag: "🇺🇸", pop2020: 6300000 }, { name: "Сан-Франциско", flag: "🇺🇸", pop2020: 4700000 }, { name: "Детройт", flag: "🇺🇸", pop2020: 4300000 }, { name: "Финикс", flag: "🇺🇸", pop2020: 4800000 },
+        
+        { name: "Франкфурт", flag: "🇩🇪", pop2020: 2500000 }, { name: "Кёльн", flag: "🇩🇪", pop2020: 1100000 }, { name: "Штутгарт", flag: "🇩🇪", pop2020: 2700000 }, { name: "Дюссельдорф", flag: "🇩🇪", pop2020: 1200000 },
+        
+        { name: "Новосибирск", flag: "🇷🇺", pop2020: 2000000 }, { name: "Екатеринбург", flag: "🇷🇺", pop2020: 1500000 }, { name: "Нижний Новгород", flag: "🇷🇺", pop2020: 1300000 }, { name: "Казань", flag: "🇷🇺", pop2020: 1300000 }, { name: "Краснодар", flag: "🇷🇺", pop2020: 1200000 }, { name: "Челябинск", flag: "🇷🇺", pop2020: 1200000 }, { name: "Ростов-на-Дону", flag: "🇷🇺", pop2020: 1100000 },
+        
+        { name: "Лахор", flag: "🇵🇰", pop2020: 13000000 }, { name: "Фейсалабад", flag: "🇵🇰", pop2020: 3500000 }, { name: "Равалпинди", flag: "🇵🇰", pop2020: 2300000 }, { name: "Исламабад", flag: "🇵🇰", pop2020: 1200000 }, { name: "Пешавар", flag: "🇵🇰", pop2020: 2200000 }, { name: "Гуджранвала", flag: "🇵🇰", pop2020: 2300000 }, { name: "Мултан", flag: "🇵🇰", pop2020: 2000000 },
+        
+        { name: "Кано", flag: "🇳🇬", pop2020: 4100000 }, { name: "Ибадан", flag: "🇳🇬", pop2020: 3600000 }, { name: "Абуджа", flag: "🇳🇬", pop2020: 3300000 }, { name: "Порт-Харкорт", flag: "🇳🇬", pop2020: 3000000 }, { name: "Бенин-Сити", flag: "🇳🇬", pop2020: 1800000 }, { name: "Кадуна", flag: "🇳🇬", pop2020: 1100000 },
+        
+        { name: "Мбужи-Майи", flag: "🇨🇩", pop2020: 2600000 }, { name: "Лубумбаши", flag: "🇨🇩", pop2020: 2500000 }, { name: "Кананга", flag: "🇨🇩", pop2020: 1500000 }, { name: "Кисангани", flag: "🇨🇩", pop2020: 1300000 }, { name: "Букаву", flag: "🇨🇩", pop2020: 1100000 },
+        
+        { name: "Александрия", flag: "🇪🇬", pop2020: 5300000 }, { name: "Касабланка", flag: "🇲🇦", pop2020: 3700000 }, { name: "Алжир", flag: "🇩🇿", pop2020: 2800000 }, { name: "Аддис-Абеба", flag: "🇪🇹", pop2020: 5000000 }, { name: "Хараре", flag: "🇿🇼", pop2020: 1500000 }, { name: "Яунде", flag: "🇨🇲", pop2020: 4100000 }, { name: "Дуала", flag: "🇨🇲", pop2020: 3800000 }, { name: "Кампала", flag: "🇺🇬", pop2020: 3300000 }, { name: "Антананариву", flag: "🇲🇬", pop2020: 3200000 }, { name: "Хартум", flag: "🇸🇩", pop2020: 5800000 }, { name: "Лусака", flag: "🇿🇲", pop2020: 2700000 }, { name: "Ломе", flag: "🇹🇬", pop2020: 1800000 }, { name: "Уагадугу", flag: "🇧🇫", pop2020: 2800000 }, { name: "Могадишо", flag: "🇸🇴", pop2020: 2300000 }, { name: "Мапуту", flag: "🇲🇿", pop2020: 1100000 }, { name: "Браззавиль", flag: "🇨🇬", pop2020: 2400000 },
+        
+        // Новые города
+        { name: "Хайфа", flag: "🇮🇱", pop2020: 1100000 }, { name: "Ришон-ле-Цион", flag: "🇮🇱", pop2020: 250000 }, { name: "Петах-Тиква", flag: "🇮🇱", pop2020: 250000 }, { name: "Ашдод", flag: "🇮🇱", pop2020: 225000 },
+        { name: "Рио-де-Жанейро", flag: "🇧🇷", pop2020: 13000000 }, { name: "Бразилиа", flag: "🇧🇷", pop2020: 4600000 }, { name: "Белу-Оризонти", flag: "🇧🇷", pop2020: 6000000 }, { name: "Форталеза", flag: "🇧🇷", pop2020: 4000000 }, { name: "Салвадор", flag: "🇧🇷", pop2020: 3900000 }, { name: "Ресифи", flag: "🇧🇷", pop2020: 4000000 }, { name: "Куритиба", flag: "🇧🇷", pop2020: 3600000 },
+        { name: "Гвадалахара", flag: "🇲🇽", pop2020: 5300000 }, { name: "Монтеррей", flag: "🇲🇽", pop2020: 5300000 }, { name: "Сьюдад-Хуарес", flag: "🇲🇽", pop2020: 1500000 },
+        { name: "Нагоя", flag: "🇯🇵", pop2020: 9500000 }, { name: "Иокогама", flag: "🇯🇵", pop2020: 3800000 }, { name: "Саппоро", flag: "🇯🇵", pop2020: 2000000 }, { name: "Фукуока", flag: "🇯🇵", pop2020: 2500000 }, { name: "Кобе", flag: "🇯🇵", pop2020: 1500000 }, { name: "Киото", flag: "🇯🇵", pop2020: 2800000 },
+        { name: "Пусан", flag: "🇰🇷", pop2020: 3400000 }, { name: "Инчхон", flag: "🇰🇷", pop2020: 2900000 }, { name: "Тэгу", flag: "🇰🇷", pop2020: 2400000 }, { name: "Тэджон", flag: "🇰🇷", pop2020: 1500000 },
+        { name: "Бангалор", flag: "🇮🇳", pop2020: 12000000 }, { name: "Ченнаи", flag: "🇮🇳", pop2020: 11000000 }, { name: "Калькутта", flag: "🇮🇳", pop2020: 14000000 }, { name: "Хайдарабад", flag: "🇮🇳", pop2020: 10000000 }, { name: "Пуна", flag: "🇮🇳", pop2020: 6000000 }, { name: "Джайпур", flag: "🇮🇳", pop2020: 4000000 }, { name: "Лакхнау", flag: "🇮🇳", pop2020: 3500000 }, { name: "Канпур", flag: "🇮🇳", pop2020: 3000000 },
+        { name: "Сурабая", flag: "🇮🇩", pop2020: 2900000 }, { name: "Бандунг", flag: "🇮🇩", pop2020: 2500000 }, { name: "Медан", flag: "🇮🇩", pop2020: 2300000 }, { name: "Бекаси", flag: "🇮🇩", pop2020: 2500000 }, { name: "Семаранг", flag: "🇮🇩", pop2020: 1800000 },
+        { name: "Манила", flag: "🇵🇭", pop2020: 13900000 }, { name: "Себу", flag: "🇵🇭", pop2020: 3000000 }, { name: "Давао", flag: "🇵🇭", pop2020: 1800000 },
+        { name: "Дакка", flag: "🇧🇩", pop2020: 21000000 }, { name: "Карачи", flag: "🇵🇰", pop2020: 16000000 }, { name: "Джидда", flag: "🇸🇦", pop2020: 4600000 }, { name: "Мекка", flag: "🇸🇦", pop2020: 2000000 }, { name: "Ханой", flag: "🇻🇳", pop2020: 4800000 }, { name: "Янгон", flag: "🇲🇲", pop2020: 5400000 }, { name: "Сантьяго", flag: "🇨🇱", pop2020: 6700000 }, { name: "Буэнос-Айрес", flag: "🇦🇷", pop2020: 15000000 }
+    ];
+
+    /* =========================================
+       ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
+       ========================================= */
+
+    function formatNumberSpaces(val) {
+        if (val === undefined || val === null || val === "") return "";
+        let str = val.toString().replace(/\D/g, ''); 
+        if (str === "") return "";
+        return str.replace(/\B(?=(\d{3})+(?!\d))/g, " "); 
+    }
+
+    // Линейная интерполяция (используется только для нормализации сетки данных при загрузке)
+    function getLinearInterpolatedValue(dataObj, targetYear) {
+        const years = Object.keys(dataObj).filter(y => y !== "null" && !isNaN(y)).map(Number).sort((a,b)=>a-b);
+        if (years.length === 0) return 0;
+        if (targetYear <= years[0]) return dataObj[years[0]];
+        if (targetYear >= years[years.length-1]) return dataObj[years[years.length-1]];
+        let y1, y2;
+        for (let i = 0; i < years.length - 1; i++) {
+            if (targetYear >= years[i] && targetYear <= years[i+1]) { y1 = years[i]; y2 = years[i+1]; break; }
+        }
+        return dataObj[y1] + (dataObj[y2] - dataObj[y1]) * ((targetYear - y1) / (y2 - y1));
+    }
+
+    // Плавная интерполяция кубическим сплайном Эрмита (для населения)
+    function getInterpolatedValueSmooth(cItem, targetYear) {
+        let years = cItem.years;
+        let growths = cItem.growths;
+        let data = cItem.data;
+        
+        if (!years || years.length === 0) return 0;
+        if (targetYear <= years[0]) return data[years[0]];
+        if (targetYear >= years[years.length-1]) return data[years[years.length-1]];
+        
+        let y0, y1;
+        for (let i = 0; i < years.length - 1; i++) {
+            if (targetYear >= years[i] && targetYear <= years[i+1]) { 
+                y0 = years[i]; 
+                y1 = years[i+1]; 
+                break; 
+            }
+        }
+        
+        let p0 = data[y0];
+        let p1 = data[y1];
+        let dx = y1 - y0;
+        let m0 = growths[y0] * dx;
+        let m1 = growths[y1] * dx;
+        
+        let t = (targetYear - y0) / dx;
+        let t2 = t * t;
+        let t3 = t2 * t;
+        
+        let h00 = 2*t3 - 3*t2 + 1;
+        let h10 = t3 - 2*t2 + t;
+        let h01 = -2*t3 + 3*t2;
+        let h11 = t3 - t2;
+        
+        return h00*p0 + h10*m0 + h01*p1 + h11*m1;
+    }
+
+    // Точная математическая производная сплайна (Мгновенная скорость прироста в год)
+    function getDerivativeValueSmooth(cItem, targetYear) {
+        let years = cItem.years;
+        let growths = cItem.growths;
+        let data = cItem.data;
+        
+        if (!years || years.length === 0) return 0;
+        if (targetYear <= years[0]) return growths[years[0]];
+        if (targetYear >= years[years.length-1]) return growths[years[years.length-1]];
+        
+        let y0, y1;
+        for (let i = 0; i < years.length - 1; i++) {
+            if (targetYear >= years[i] && targetYear <= years[i+1]) { 
+                y0 = years[i]; 
+                y1 = years[i+1]; 
+                break; 
+            }
+        }
+        
+        let p0 = data[y0];
+        let p1 = data[y1];
+        let dx = y1 - y0;
+        let m0 = growths[y0] * dx;
+        let m1 = growths[y1] * dx;
+        
+        let t = (targetYear - y0) / dx;
+        let t2 = t * t;
+        
+        // Производные базисных функций Эрмита
+        let dh00 = 6*t2 - 6*t;
+        let dh10 = 3*t2 - 4*t + 1;
+        let dh01 = -6*t2 + 6*t;
+        let dh11 = 3*t2 - 2*t;
+        
+        let dp_dt = dh00*p0 + dh10*m0 + dh01*p1 + dh11*m1;
+        
+        // Делим на dx, так как мы дифференцируем по t, а не по году (Chain rule)
+        return dp_dt / dx;
+    }
+
+    // Экстраполяция исторических данных от 1950 к 1900 году
+    function backfillTo1900(dataset) {
+        dataset.forEach(item => {
+            let p50 = item.data["1950"];
+            let p60 = item.data["1960"];
+            if (p50 && p60) {
+                let rate = p60 / p50;
+                rate = 1 + (rate - 1) * 0.6; 
+                if(rate < 1.05) rate = 1.05;
+                if(rate > 1.25) rate = 1.25;
+                
+                item.data["1940"] = Math.floor(p50 / rate);
+                item.data["1930"] = Math.floor(item.data["1940"] / rate);
+                item.data["1920"] = Math.floor(item.data["1930"] / rate);
+                item.data["1910"] = Math.floor(item.data["1920"] / rate);
+                item.data["1900"] = Math.floor(item.data["1910"] / rate);
+            }
+        });
+    }
+
+    const standardDecades = [1900, 1910, 1920, 1930, 1940, 1950, 1960, 1970, 1980, 1990, 2000, 2010, 2020, 2030, 2040, 2050, 2060, 2070, 2080, 2090, 2100];
+    
+    backfillTo1900(defaultCountriesData);
+    backfillTo1900(defaultCitiesData);
+
+    let existingCities = new Set(defaultCitiesData.map(c => c.name));
+    if (defaultCitiesData.length < 200) {
+        for (let i = 0; i < cityDataList.length; i++) {
+            if (defaultCitiesData.length >= 200) break;
+            let cityObj = cityDataList[i];
+            if (existingCities.has(cityObj.name)) continue;
+
+            let cityName = cityObj.name;
+            let pop2020 = cityObj.pop2020;
+            let m2030 = 1.1, m2050 = 1.3, m2075 = 1.4, m2100 = 1.35;
+            let cData = {};
+            
+            [1900, 1910, 1920, 1930, 1940, 1950, 1960, 1970, 1980, 1990, 2000, 2010, 2020].forEach(y => {
+                let progress = (y - 1900) / (2020 - 1900);
+                cData[y] = Math.floor((pop2020 * 0.05) * Math.pow((pop2020 / (pop2020 * 0.05)), progress));
+            });
+            cData[2020] = pop2020;
+            cData[2030] = Math.floor(pop2020 * m2030);
+            cData[2050] = Math.floor(pop2020 * m2050);
+            cData[2075] = Math.floor(pop2020 * m2075);
+            cData[2100] = Math.floor(pop2020 * m2100);
+
+            defaultCitiesData.push({
+                name: cityName, flag: cityObj.flag, color: `#${Math.floor(Math.random()*16777215).toString(16).padStart(6, '0')}`, data: cData, area: 1000 
+            });
+            existingCities.add(cityName);
+        }
+    }
+
+    function normalizeToDecades(dataset) {
+        dataset.forEach(item => {
+            let newData = {};
+            standardDecades.forEach(year => {
+                if (item.data[year] !== undefined && year !== 2075) newData[year] = item.data[year];
+                else newData[year] = Math.floor(getLinearInterpolatedValue(item.data, year));
+            });
+            item.data = newData;
+            if(!item.area) item.area = 1000; 
+        });
+    }
+    
+    normalizeToDecades(defaultCountriesData);
+    normalizeToDecades(defaultCitiesData);
+
+    let rawWorkingCountries = JSON.parse(JSON.stringify(defaultCountriesData));
+    let rawWorkingCities = JSON.parse(JSON.stringify(defaultCitiesData));
+    let allYearsKeys = [];
+    let currentEditorMode = 'countries';
+
+    function attachIds(arr) {
+        arr.forEach(item => {
+            if (!item._id) item._id = Math.random().toString(36).substr(2, 9);
+        });
+    }
+    attachIds(rawWorkingCountries);
+    attachIds(rawWorkingCities);
+
+    /* =========================================
+       СИСТЕМА ФИЛЬТРАЦИИ И КАТЕГОРИЗАЦИИ 
+       ========================================= */
+    const flagToCountryMap = {};
+    defaultCountriesData.forEach(c => flagToCountryMap[c.flag] = c.name);
+
+    function getTagsForItem(name, mode, flag) {
+        let targetCountry = name;
+        if (mode === 'cities') targetCountry = flagToCountryMap[flag] || name; 
+        const tags = [];
+        
+        if (["Китай", "Индия", "Индонезия", "Пакистан", "Бангладеш", "Япония", "Филиппины", "Вьетнам", "Иран", "Турция", "Таиланд", "Мьянма", "Южная Корея", "Узбекистан", "Саудовская Аравия", "Афганистан", "Малайзия", "Йемен", "Непал", "КНДР", "Шри-Ланка", "Сирия", "Камбоджа", "ОАЭ", "Таджикистан", "Израиль", "Гонконг", "Лаос", "Ливан", "Кыргызстан", "Туркменистан", "Сингапур", "Оман", "Палестина", "Иордания", "Кувейт", "Азербайджан", "Грузия", "Монголия", "Катар", "Бахрейн", "Бруней", "Мальдивы", "Бутан", "Тайвань"].includes(targetCountry)) tags.push("Азия");
+        if (["Россия", "Германия", "Великобритания", "Франция", "Италия", "Испания", "Украина", "Польша", "Румыния", "Нидерланды", "Бельгия", "Чехия", "Греция", "Португалия", "Швеция", "Венгрия", "Беларусь", "Австрия", "Сербия", "Швейцария", "Болгария", "Словакия", "Дания", "Финляндия", "Норвегия", "Ирландия", "Хорватия", "Литва", "Латвия", "Эстония", "Словения", "Северная Македония", "Черногория", "Люксембург", "Мальта", "Исландия", "Андорра", "Кипр", "Молдова", "Босния и Герцеговина", "Албания"].includes(targetCountry)) tags.push("Европа");
+        if (["Нигерия", "Эфиопия", "Египет", "ДР Конго", "Танзания", "ЮАР", "Кения", "Алжир", "Судан", "Уганда", "Марокко", "Ангола", "Мозамбик", "Гана", "Мадагаскар", "Кот-д'Ивуар", "Камерун", "Нигер", "Буркина-Фасо", "Мали", "Малави", "Замбия", "Сенегал", "Чад", "Сомали", "Зимбабве", "Гвинея", "Руанда", "Бенин", "Бурунди", "Тунис", "Южный Судан", "Того", "Сьерра-Леоне", "Конго", "Либерия", "ЦАР", "Мавритания", "Ливия", "Эритрея", "Намибия", "Гамбия", "Ботсвана", "Габон", "Лесото", "Экваториальная Гвинея", "Маврикий", "Эсватини", "Джибути", "Коморские острова", "Кабо-Верде", "Сан-Томе", "Сейшелы", "Гвинея-Бисау"].includes(targetCountry)) tags.push("Африка");
+        if (["США", "Мексика", "Канада", "Гватемала", "Гаити", "Куба", "Доминиканская Респ.", "Гондурас", "Сальвадор", "Никарагуа", "Коста-Рика", "Панама", "Ямайка", "Тринидад и Тобаго", "Белиз", "Багамы", "Барбадос", "Сент-Люсия", "Гренада", "Сент-Винсент", "Антигуа и Барбуда"].includes(targetCountry)) tags.push("Северная Америка");
+        if (["Бразилия", "Колумбия", "Аргентина", "Перу", "Венесуэла", "Чили", "Эквадор", "Боливия", "Парагвай", "Уругвай", "Гайана", "Суринам"].includes(targetCountry)) tags.push("Южная Америка");
+        if (["Австралия", "Папуа Новая Гвинея", "Новая Зеландия", "Фиджи", "Соломоновы острова", "Микронезия", "Вануату", "Самоа", "Кирибати", "Тонга"].includes(targetCountry)) tags.push("Океания");
+        
+        return tags;
+    }
+
+    function getFilteredEditorData() {
+        let sourceData = currentEditorMode === 'countries' ? rawWorkingCountries : rawWorkingCities;
+        if (state.filterCategory !== "all") {
+            return sourceData.filter(item => {
+                const tags = getTagsForItem(item.name, currentEditorMode, item.flag);
+                return tags.includes(state.filterCategory);
+            });
+        }
+        return sourceData;
+    }
+
+    /* =========================================
+       ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ И D3 СТЕЙТ
+       ========================================= */
+    let currentData = [];
+    let state = {
+        minYear: 1900,
+        maxYear: 2100,
+        currentYear: 1900,
+        isPlaying: false,
+        msPerYear: 15000,
+        topN: 150,
+        selectedBar: null,
+        mode: 'countries',
+        filterCategory: 'all',
+        metric: 'population', // 'population', 'density', 'growth_abs'
+        autoZoom: true,
+        soundEnabled: false
+    };
+
+    // Настройки проекта хранятся отдельно от табличных данных симуляции.
+    const LANGUAGES = [
+        ['ru','Русский'],['en','English'],['es','Español'],['fr','Français'],['de','Deutsch'],['it','Italiano'],['pt','Português'],['nl','Nederlands'],['pl','Polski'],['uk','Українська'],['tr','Türkçe'],['ar','العربية'],['zh','简体中文'],['ja','日本語'],['ko','한국어'],['hi','हिन्दी'],['bn','বাংলা'],['id','Bahasa Indonesia'],['ms','Bahasa Melayu'],['vi','Tiếng Việt'],['th','ไทย'],['sv','Svenska'],['no','Norsk'],['da','Dansk'],['fi','Suomi'],['el','Ελληνικά'],['he','עברית'],['fa','فارسی'],['ur','اردو'],['ro','Română'],['hu','Magyar'],['cs','Čeština'],['sk','Slovenčina'],['bg','Български'],['sr','Српски']
+    ];
+    const UI = {
+        ru:{studio:'СТУДИЯ СИМУЛЯЦИЙ',language:'Язык',install:'Установить приложение',installHelp:'Установка: используйте кнопку вверху в поддерживаемом браузере. iPhone/iPad: Safari → «Поделиться» → «На экран Домой».',simulation:'Что симулируем',subject:'Предмет',customMetric:'Название своей метрики',settings:'Настройки',description:'Настройте объект исследования, метрику гонки и масштаб данных.'},
+        en:{studio:'SIMULATION STUDIO',language:'Language',install:'Install app',installHelp:'Install with the button above in a supported browser. iPhone/iPad: Safari → Share → Add to Home Screen.',simulation:'Simulation subject',subject:'Subject',customMetric:'Custom metric name',settings:'Settings',description:'Choose a subject, race metric and data scale.'},
+        es:{studio:'ESTUDIO DE SIMULACIÓN',language:'Idioma',install:'Instalar aplicación',installHelp:'Instala con el botón superior en un navegador compatible. iPhone/iPad: Safari → Compartir → Añadir a pantalla de inicio.',simulation:'Tema de simulación',customMetric:'Nombre de métrica',settings:'Ajustes',description:'Elige el tema, la métrica y la escala de datos.'},
+        fr:{studio:'STUDIO DE SIMULATION',language:'Langue',install:'Installer l’application',installHelp:'Installez avec le bouton ci-dessus. iPhone/iPad : Safari → Partager → Sur l’écran d’accueil.',simulation:'Sujet de simulation',customMetric:'Nom de la mesure',settings:'Paramètres',description:'Choisissez un sujet, une mesure et une échelle.'},
+        de:{studio:'SIMULATIONSSTUDIO',language:'Sprache',install:'App installieren',installHelp:'Über die Schaltfläche oben installieren. iPhone/iPad: Safari → Teilen → Zum Home-Bildschirm.',simulation:'Simulationsthema',customMetric:'Eigener Metrikname',settings:'Einstellungen',description:'Thema, Kennzahl und Datenskala auswählen.'},
+        zh:{studio:'模拟工作室',language:'语言',install:'安装应用',installHelp:'请在支持的浏览器中点击上方按钮安装。iPhone/iPad：Safari → 分享 → 添加到主屏幕。',simulation:'模拟主题',customMetric:'自定义指标名称',settings:'设置',description:'选择模拟主题、竞赛指标和数据范围。'},
+        ja:{studio:'シミュレーションスタジオ',language:'言語',install:'アプリをインストール',installHelp:'対応ブラウザーで上のボタンからインストール。iPhone/iPad：Safari → 共有 → ホーム画面に追加。',simulation:'シミュレーション対象',customMetric:'指標名',settings:'設定',description:'対象、指標、データ範囲を選択します。'},
+        uk:{studio:'СТУДІЯ СИМУЛЯЦІЙ',language:'Мова',install:'Встановити застосунок',installHelp:'Встановіть кнопкою вище у підтримуваному браузері. iPhone/iPad: Safari → Поділитися → На початковий екран.',simulation:'Що симулюємо',customMetric:'Назва власної метрики',settings:'Налаштування',description:'Оберіть тему, метрику змагання та масштаб даних.'},
+        ar:{studio:'استوديو المحاكاة',language:'اللغة',install:'تثبيت التطبيق',installHelp:'ثبّت عبر الزر أعلاه. على iPhone/iPad: Safari ← مشاركة ← إضافة إلى الشاشة الرئيسية.',simulation:'موضوع المحاكاة',customMetric:'اسم المقياس المخصص',settings:'الإعدادات',description:'اختر الموضوع والمقياس ونطاق البيانات.'}
+    };
+    const SUBJECTS = {demography:{ru:'Демографическая гонка',en:'Population race',es:'Carrera demográfica',fr:'Course démographique',de:'Bevölkerungsrennen',zh:'人口竞赛',ja:'人口レース',uk:'Демографічні перегони',ar:'سباق السكان'},gdp:{ru:'Гонка экономик: ВВП',en:'GDP race',es:'Carrera del PIB',fr:'Course au PIB',de:'BIP-Wettlauf',zh:'GDP竞赛',ja:'GDPレース',uk:'Перегони ВВП',ar:'سباق الناتج المحلي'},production:{ru:'Гонка производства',en:'Production race',es:'Carrera de producción',fr:'Course à la production',de:'Produktionsrennen',zh:'生产竞赛',ja:'生産レース',uk:'Перегони виробництва',ar:'سباق الإنتاج'},migration:{ru:'Гонка миграционного баланса',en:'Migration balance race',es:'Carrera del saldo migratorio',fr:'Course au solde migratoire',de:'Migrationssaldo-Rennen',zh:'移民净额竞赛',ja:'純移民レース',uk:'Перегони міграційного балансу',ar:'سباق صافي الهجرة'},crime:{ru:'Гонка уровня преступности',en:'Crime rate race',es:'Carrera de criminalidad',fr:'Course à la criminalité',de:'Kriminalitätsrennen',zh:'犯罪率竞赛',ja:'犯罪率レース',uk:'Перегони рівня злочинності',ar:'سباق معدل الجريمة'},custom:{ru:'Пользовательская симуляция',en:'Custom simulation',es:'Simulación personalizada',fr:'Simulation personnalisée',de:'Benutzerdefinierte Simulation',zh:'自定义模拟',ja:'カスタムシミュレーション',uk:'Власна симуляція',ar:'محاكاة مخصصة'}};
+    const projectSettingsKey = 'atlas-simulation-settings-v1';
+    let projectSettings = (()=>{try{return {...{name:'',subject:'demography',metric:'population',customMetric:'',language:(navigator.language||'ru').slice(0,2)},...JSON.parse(localStorage.getItem(projectSettingsKey)||'{}')}}catch{return {name:'',subject:'demography',metric:'population',customMetric:'',language:'ru'}}})();
+    if(!LANGUAGES.some(([code])=>code===projectSettings.language)) projectSettings.language='en';
+    const setProjectName = name => { const value=name.trim().slice(0,48); document.getElementById('project-name').value=value||SUBJECTS[projectSettings.subject][projectSettings.language]||SUBJECTS[projectSettings.subject].en; };
+    const persistProjectSettings = () => localStorage.setItem(projectSettingsKey,JSON.stringify(projectSettings));
+    function applyInterfaceLanguage(){
+        const lang=projectSettings.language, dict=UI[lang]||UI.en;
+        document.documentElement.lang=lang; document.documentElement.dir=['ar','he','fa','ur'].includes(lang)?'rtl':'ltr';
+        document.querySelectorAll('[data-i18n]').forEach(el=>{const key=el.dataset.i18n;if(dict[key])el.textContent=dict[key]});
+        document.title=`${document.getElementById('project-name').value} — Atlas Studio`;
+        const language=document.getElementById('language-select'); if(language) language.value=lang;
+        const settingLabel=document.querySelector('#btn-settings');if(settingLabel)settingLabel.lastChild.textContent=' '+dict.settings;
+        const subtitle=document.getElementById('project-subtitle');if(subtitle&&projectSettings.subject!=='demography')subtitle.textContent=dict.description;
+    }
+
+    let audioCtx = null;
+    let globalMaxPop = 0; 
+    let globalMaxDensity = 0;
+    let globalMaxGrowth = 0;
+
+    const margin = { top: 10, right: 180, bottom: 20, left: 180 };
+    const BAR_HEIGHT = 45;
+    let width = 0;
+    let svg, chartGroup, axisSvg;
+    let xScale, yScale;
+    let totalHeight = 0;
+    
+    let lastTime = 0;
+    let animationFrameId = null;
+    let currentMaxX = 0; 
+
+    /* =========================================
+       ЗВУКОВЫЕ ЭФФЕКТЫ
+       ========================================= */
+    function playBeep(freq) {
+        if (!state.soundEnabled) return;
+        if (!audioCtx) {
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+        gain.gain.setValueAtTime(0.05, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.1);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.1);
+    }
+
+    /* =========================================
+       D3 ЛОГИКА ОТРИСОВКИ И АНИМАЦИИ
+       ========================================= */
+
+    function initD3() {
+        const container = document.getElementById("chart-container");
+        width = container.clientWidth;
+        
+        let displayCount = Math.min(state.topN, currentData.length);
+        totalHeight = displayCount * BAR_HEIGHT + margin.bottom;
+
+        d3.select("#axis-container").selectAll("*").remove();
+        d3.select("#chart-container").selectAll("svg").remove();
+
+        axisSvg = d3.select("#axis-container")
+            .append("svg")
+            .attr("width", "100%")
+            .attr("height", 40);
+
+        axisSvg.append("g")
+            .attr("transform", `translate(${margin.left}, 39)`)
+            .attr("id", "x-axis")
+            .attr("class", "text-slate-500 font-mono text-xs");
+
+        svg = d3.select("#chart-container")
+            .append("svg")
+            .attr("width", "100%")
+            .attr("height", Math.max(container.clientHeight, totalHeight));
+
+        chartGroup = svg.append("g")
+            .attr("transform", `translate(${margin.left}, ${margin.top})`);
+
+        chartGroup.append("g").attr("id", "grid-lines");
+
+        xScale = d3.scaleLinear().range([0, width - margin.left - margin.right]);
+
+        yScale = d3.scaleBand()
+            .domain(d3.range(displayCount))
+            .range([0, totalHeight - margin.bottom])
+            .padding(0.15); 
+    }
+
+    function calculateGlobalMax(rawData) {
+        globalMaxPop = 0;
+        globalMaxDensity = 0;
+        globalMaxGrowth = 0;
+        
+        rawData.forEach(item => {
+            let years = Object.keys(item.data).filter(y => y !== "null" && !isNaN(y)).map(Number).sort((a,b)=>a-b);
+            years.forEach((y, i) => {
+                let val = item.data[y];
+                if(val > globalMaxPop) globalMaxPop = val;
+                
+                if(item.area) {
+                    let d = val / item.area;
+                    if(d > globalMaxDensity) globalMaxDensity = d;
+                }
+                
+                if(i < years.length - 1) {
+                    let nextY = years[i+1];
+                    let growth = (item.data[nextY] - val) / (nextY - y);
+                    if(growth > globalMaxGrowth) globalMaxGrowth = growth;
+                }
+            });
+        });
+        
+        if(globalMaxGrowth < 1000) globalMaxGrowth = 1000000; 
+    }
+
+    function loadData(rawData, keepYear = false) {
+        calculateGlobalMax(rawData);
+        
+        let allYears = new Set();
+        rawData.forEach(item => {
+            Object.keys(item.data).forEach(y => {
+                if (y !== "null" && !isNaN(y)) allYears.add(parseFloat(y));
+            });
+        });
+        const yearsArray = Array.from(allYears).sort((a,b) => a - b);
+        state.minYear = yearsArray[0] || 1900;
+        state.maxYear = yearsArray[yearsArray.length - 1] || 2100;
+        
+        if (!keepYear) {
+            state.currentYear = state.minYear;
+        } else {
+            if (state.currentYear < state.minYear) state.currentYear = state.minYear;
+            if (state.currentYear > state.maxYear) state.currentYear = state.maxYear;
+        }
+        
+        state.selectedBar = null;
+        
+        const slider = document.getElementById("year-slider");
+        slider.min = state.minYear;
+        slider.max = state.maxYear;
+        slider.value = state.currentYear;
+        
+        const maxLabel = document.getElementById("max-year-label");
+        if (maxLabel) maxLabel.innerText = state.maxYear;
+
+        // Предрасчет касательных (производных) для сплайна с защитой от перекручиваний (Fritsch-Carlson)
+        currentData = rawData.map(c => {
+            let years = Object.keys(c.data).filter(y => y !== "null" && !isNaN(y)).map(Number).sort((a,b)=>a-b);
+            let growths = {};
+            
+            years.forEach((y, i) => {
+                let gPrev = null, gNext = null;
+                if (i > 0) gPrev = (c.data[y] - c.data[years[i-1]]) / (y - years[i-1]);
+                if (i < years.length - 1) gNext = (c.data[years[i+1]] - c.data[y]) / (years[i+1] - y);
+                
+                if (gPrev !== null && gNext !== null) {
+                    if (gPrev * gNext <= 0) {
+                        growths[y] = 0; // Строгая монотонность: если тренд меняется, производная = 0
+                    } else {
+                        let m = (gPrev + gNext) / 2;
+                        let maxM = 3 * Math.min(Math.abs(gPrev), Math.abs(gNext));
+                        growths[y] = Math.sign(m) * Math.min(Math.abs(m), maxM);
+                    }
+                } else if (gPrev !== null) growths[y] = gPrev;
+                else if (gNext !== null) growths[y] = gNext;
+                else growths[y] = 0;
+            });
+
+            return {
+                name: c.name,
+                flag: c.flag || "",
+                color: c.color || "#888",
+                area: c.area || 1, 
+                data: c.data,
+                years: years,
+                growths: growths,
+                currentValue: 0,
+                currentY: 10000, 
+                currentOpacity: 0,
+                prevRank: 999
+            };
+        });
+
+        currentMaxX = 0;
+        
+        initD3();
+        chartGroup.selectAll(".bar-group").remove();
+        
+        const bars = chartGroup.selectAll(".bar-group")
+            .data(currentData, d => d.name)
+            .enter()
+            .append("g")
+            .attr("class", "bar-group cursor-pointer transition-colors hover:brightness-110") 
+            .attr("transform", d => `translate(0, ${d.currentY})`)
+            .on("click", (event, d) => {
+                state.selectedBar = state.selectedBar === d.name ? null : d.name;
+                if (!state.isPlaying) renderFrame(true); 
+            });
+
+        bars.append("rect")
+            .attr("class", "bar-rect")
+            .attr("height", yScale.bandwidth())
+            .attr("fill", d => d.color)
+            .attr("rx", 4); 
+
+        bars.append("text")
+            .attr("class", "bar-label")
+            .attr("x", -10)
+            .attr("y", yScale.bandwidth() / 2)
+            .text(d => `${d.flag} ${d.name}`);
+
+        bars.append("text")
+            .attr("class", "bar-value")
+            .attr("x", 10)
+            .attr("y", yScale.bandwidth() / 2);
+
+        bars.append("text")
+            .attr("class", "trend-text")
+            .attr("y", yScale.bandwidth() / 2);
+
+        bars.append("text")
+            .attr("class", "density-text hidden md:block")
+            .attr("y", yScale.bandwidth() / 2);
+
+        renderFrame(true);
+    }
+
+    const formatNumberDisplay = d3.format(",.0f");
+    
+    function formatPop(num) {
+        if(state.metric === 'density') return formatNumberDisplay(num).replace(/,/g, ' ') + ' чел/км²';
+        if(state.metric === 'growth_abs') {
+            let sign = num > 0 ? "+" : "";
+            return sign + formatNumberDisplay(num).replace(/,/g, ' ') + ' в год';
+        }
+        return formatNumberDisplay(num).replace(/,/g, ' ');
+    }
+    
+    function formatDiff(num) {
+        if(num === 0) return { text: "", color: "transparent" };
+        let sign = num > 0 ? "↑ +" : "↓ ";
+        let color = num > 0 ? "#22c55e" : "#ef4444";
+        let abs = Math.abs(num);
+        let text = "";
+        if(state.metric === 'density') {
+            text = abs.toFixed(1);
+        } else {
+            if(abs >= 1000000) text = (abs / 1000000).toFixed(1) + "М";
+            else if (abs >= 1000) text = (abs / 1000).toFixed(0) + "К";
+            else text = Math.floor(abs);
+        }
+        return { text: sign + text, color: color };
+    }
+
+    function gameLoop(time) {
+        if (!state.isPlaying) return;
+        const dt = time - lastTime;
+        lastTime = time;
+
+        state.currentYear += dt / state.msPerYear;
+        
+        if (state.currentYear >= state.maxYear) {
+            state.currentYear = state.maxYear;
+            document.getElementById("btn-play").click(); 
+        }
+
+        document.getElementById("year-slider").value = state.currentYear;
+        renderFrame(false, dt);
+        
+        if (state.isPlaying) animationFrameId = requestAnimationFrame(gameLoop);
+    }
+
+    function renderFrame(isInstant = false, dt = 16) {
+        let currentTotalPop = 0;
+        let currentTotalArea = 0;
+
+        currentData.forEach(c => {
+            let pop = getInterpolatedValueSmooth(c, state.currentYear);
+            let growth = getDerivativeValueSmooth(c, state.currentYear);
+            
+            c.popVal = pop; 
+            c.growthVal = growth;
+            
+            if (state.metric === 'density') {
+                c.targetValue = pop / c.area;
+            } else if (state.metric === 'growth_abs') {
+                c.targetValue = growth;
+            } else {
+                c.targetValue = pop;
+            }
+        });
+
+        const sorted = [...currentData].sort((a, b) => b.targetValue - a.targetValue);
+
+        currentData.forEach(c => {
+            const rank = sorted.findIndex(item => item.name === c.name);
+            c.targetRank = rank;
+            c.targetY = rank < state.topN ? yScale(rank) : totalHeight + 100; 
+            
+            if (rank < state.topN) {
+                if (state.metric === 'growth_abs') {
+                    currentTotalPop += c.targetValue; 
+                } else {
+                    currentTotalPop += c.popVal;
+                }
+                currentTotalArea += c.area;
+                
+                if(!isInstant && c.prevRank !== undefined && c.targetRank < c.prevRank) {
+                    playBeep(800 + Math.max(0, (50 - c.targetRank)) * 10);
+                }
+            }
+            c.prevRank = c.targetRank;
+        });
+
+        if(state.metric === 'population') {
+            document.getElementById("total-metric-label").innerText = "Суммарное население (Топ)";
+            document.getElementById("total-pop-val").innerText = formatNumberDisplay(currentTotalPop).replace(/,/g, ' ');
+        } else if (state.metric === 'growth_abs') {
+            document.getElementById("total-metric-label").innerText = "Суммарный прирост (Топ)";
+            let sign = currentTotalPop > 0 ? "+" : "";
+            document.getElementById("total-pop-val").innerText = sign + formatNumberDisplay(currentTotalPop).replace(/,/g, ' ') + " чел / год";
+        } else {
+            document.getElementById("total-metric-label").innerText = "Средняя плотность (Топ)";
+            let avgDens = currentTotalArea > 0 ? (currentTotalPop / currentTotalArea) : 0;
+            document.getElementById("total-pop-val").innerText = formatNumberDisplay(avgDens).replace(/,/g, ' ') + " / км²";
+        }
+
+        if (sorted.length === 0) return;
+
+        const topValue = sorted[0].targetValue;
+        let maxXGoal = 0;
+
+        if(!state.autoZoom) {
+            if (state.metric === 'density') maxXGoal = globalMaxDensity * 1.05;
+            else if (state.metric === 'growth_abs') maxXGoal = globalMaxGrowth * 1.05;
+            else maxXGoal = globalMaxPop * 1.05;
+        } else {
+            maxXGoal = Math.max(topValue * 1.25, 1000); 
+        }
+
+        if (isInstant) currentMaxX = maxXGoal;
+        else {
+            const lerpFactorX = Math.min(1, 0.05 * (dt / 16));
+            currentMaxX += (maxXGoal - currentMaxX) * lerpFactorX;
+        }
+        
+        xScale.domain([0, currentMaxX]);
+        
+        const xAxis = d3.axisTop(xScale)
+            .ticks(5)
+            .tickFormat(d => {
+                if(state.metric === 'density') return d.toFixed(0);
+                
+                let sign = (state.metric === 'growth_abs' && d > 0) ? "+" : "";
+                let absD = Math.abs(d);
+                
+                if (absD >= 1000000000) return sign + (d / 1000000000).toFixed(1) + " млрд";
+                if (absD >= 1000000) return sign + (d / 1000000).toFixed(1) + " млн";
+                if (absD >= 1000) return sign + (d / 1000).toFixed(0) + " тыс";
+                return sign + d;
+            });
+            
+        axisSvg.select("#x-axis")
+            .call(xAxis)
+            .call(g => g.select(".domain").remove()) 
+            .call(g => g.selectAll(".tick text").attr("fill", "#64748b").attr("dy", "-0.2em"));
+
+        const xTicks = xScale.ticks(5);
+        const gridLines = chartGroup.select("#grid-lines").selectAll("line").data(xTicks);
+        
+        gridLines.enter().append("line")
+            .merge(gridLines)
+            .attr("x1", d => xScale(d))
+            .attr("x2", d => xScale(d))
+            .attr("y1", 0)
+            .attr("y2", totalHeight)
+            .attr("stroke", "rgba(255,255,255,0.05)")
+            .attr("stroke-dasharray", "4,4");
+            
+        gridLines.exit().remove();
+
+        document.getElementById("year-bg-html").innerText = Math.floor(state.currentYear);
+
+        const bars = chartGroup.selectAll(".bar-group").data(currentData, d => d.name);
+
+        bars.each(function(d) {
+            const group = d3.select(this);
+            
+            group.select(".bar-label").text(`${d.targetRank + 1}. ${d.flag} ${d.name}`);
+
+            let targetOpacity = 1;
+            if (d.targetRank >= state.topN) targetOpacity = 0; 
+            else if (state.selectedBar && state.selectedBar !== d.name) targetOpacity = 0.25; 
+            
+            if (isInstant) {
+                d.currentY = d.targetY;
+                d.currentValue = d.targetValue;
+                d.currentOpacity = targetOpacity;
+            } else {
+                const lerpFactorY = Math.min(1, 0.1 * (dt / 16)); 
+                const lerpFactorV = Math.min(1, 0.2 * (dt / 16)); 
+                const lerpFactorO = Math.min(1, 0.15 * (dt / 16)); 
+                
+                d.currentY += (d.targetY - d.currentY) * lerpFactorY;
+                d.currentValue += (d.targetValue - d.currentValue) * lerpFactorV;
+                d.currentOpacity += (targetOpacity - d.currentOpacity) * lerpFactorO;
+            }
+
+            const barWidth = Math.max(0, xScale(d.currentValue));
+
+            group.attr("transform", `translate(0, ${d.currentY})`).attr("opacity", d.currentOpacity);
+            
+            group.select(".bar-rect")
+                .attr("width", barWidth)
+                .attr("stroke", state.selectedBar === d.name ? "#ffffff" : "none")
+                .attr("stroke-width", state.selectedBar === d.name ? 2 : 0);
+                
+            group.select(".bar-value")
+                .attr("x", barWidth + 10)
+                .text(formatPop(d.currentValue));
+
+            let diff = 0;
+            if (state.currentYear > state.minYear) {
+                if (state.metric === 'density') {
+                    diff = d.growthVal / d.area; 
+                } else if (state.metric === 'population') {
+                    diff = d.growthVal; 
+                }
+            }
+            
+            const diffObj = formatDiff(diff);
+            
+            if (state.metric === 'growth_abs') {
+                diffObj.text = ""; 
+            }
+
+            let popTextLen = formatPop(d.currentValue).length * 8 + 15;
+            
+            group.select(".trend-text")
+                .attr("x", barWidth + 10 + popTextLen)
+                .text(diffObj.text)
+                .attr("fill", diffObj.color)
+                .attr("opacity", d.currentOpacity > 0.5 ? 1 : 0);
+
+            if (state.mode === 'countries' && d.area && state.metric === 'population') {
+                let density = Math.round(d.popVal / d.area);
+                let trendTextLen = (diffObj.text ? diffObj.text.length : 0) * 7 + 10;
+                group.select(".density-text")
+                    .attr("x", barWidth + 10 + popTextLen + trendTextLen)
+                    .text(`| ${formatNumberDisplay(density).replace(/,/g, ' ')} чел/км²`)
+                    .attr("opacity", 1);
+            } else {
+                group.select(".density-text").attr("opacity", 0);
+            }
+                
+            group.style("pointer-events", d.currentOpacity < 0.1 ? "none" : "auto");
+        });
+    }
+
+    /* =========================================
+       ВИЗУАЛЬНЫЙ РЕДАКТОР (ТАБЛИЦА)
+       ========================================= */
+
+    function initTableEditor(data) {
+        let isCountries = currentEditorMode === 'countries';
+        const thead = document.getElementById("table-header-row");
+        
+        let yearsSet = new Set();
+        data.forEach(c => Object.keys(c.data).forEach(y => {
+            if (y !== "null" && !isNaN(y)) yearsSet.add(parseInt(y));
+        }));
+        allYearsKeys = Array.from(yearsSet).sort((a,b) => a - b);
+
+        let html = `<th scope="col" class="px-4 py-3 sticky left-0 bg-slate-900 z-30 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.5)] border-b border-slate-700 min-w-[150px]">Название</th>
+                    <th scope="col" class="px-2 py-3 text-center border-b border-slate-700">Флаг</th>
+                    <th scope="col" class="px-2 py-3 text-center border-b border-slate-700">Цвет</th>`;
+        if (isCountries) html += `<th scope="col" class="px-4 py-3 text-right min-w-[120px] border-b border-slate-700">Площадь (км²)</th>`;
+        allYearsKeys.forEach(y => html += `<th scope="col" class="px-4 py-3 text-right min-w-[130px] border-b border-slate-700">${y}</th>`);
+        html += `<th scope="col" class="px-4 py-3 text-center border-b border-slate-700">Удалить</th>`;
+        thead.innerHTML = html;
+        renderTableRows(data, isCountries);
+    }
+
+    function renderTableRows(data, isCountries) {
+        const tbody = document.getElementById("table-body");
+        tbody.innerHTML = '';
+        data.forEach((item, index) => {
+            const tr = document.createElement("tr");
+            tr.className = "border-b border-slate-700 hover:bg-slate-800/50 transition-colors";
+            
+            let html = `
+                <td class="px-4 py-2 sticky left-0 bg-slate-800 z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.5)]">
+                    <input type="text" class="w-full bg-slate-900 border border-slate-600 rounded px-2 py-1 text-white focus:outline-none focus:border-blue-500 row-name" value="${item.name}">
+                </td>
+                <td class="px-2 py-2 text-center">
+                    <input type="text" class="w-12 bg-slate-900 border border-slate-600 rounded px-1 py-1 text-center text-white focus:outline-none focus:border-blue-500 row-flag" value="${item.flag}">
+                </td>
+                <td class="px-2 py-2 text-center">
+                    <div class="flex justify-center items-center">
+                        <input type="color" class="w-8 h-8 rounded cursor-pointer bg-transparent border-0 row-color p-0" value="${item.color}">
+                    </div>
+                </td>
+            `;
+            if (isCountries) {
+                let areaVal = formatNumberSpaces(item.area || 1000);
+                html += `<td class="px-4 py-2"><input type="text" inputmode="numeric" class="w-full bg-slate-900 border border-slate-600 rounded px-2 py-1 text-right text-blue-400 font-mono focus:outline-none focus:border-blue-500 pop-input row-area" value="${areaVal}"></td>`;
+            }
+            allYearsKeys.forEach(y => {
+                let formattedVal = formatNumberSpaces(item.data[y] || 0);
+                html += `<td class="px-4 py-2"><input type="text" inputmode="numeric" data-year="${y}" class="w-full bg-slate-900 border border-slate-600 rounded px-2 py-1 text-right text-green-400 font-mono focus:outline-none focus:border-blue-500 pop-input year-input" value="${formattedVal}"></td>`;
+            });
+            html += `<td class="px-4 py-2 text-center"><button class="text-slate-500 hover:text-red-500 transition-colors btn-delete-row" data-index="${index}" title="Удалить"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mx-auto" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" /></svg></button></td>`;
+            
+            tr.innerHTML = html;
+            tbody.appendChild(tr);
+        });
+
+        // Выделение текста при клике
+        document.querySelectorAll('#table-body input[type="text"]').forEach(input => {
+            input.addEventListener('focus', function() {
+                setTimeout(() => this.select(), 0);
+            });
+        });
+        
+        // Кнопки удаления
+        document.querySelectorAll('.btn-delete-row').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const idx = this.getAttribute('data-index');
+                if (isCountries) {
+                    rawWorkingCountries.splice(idx, 1);
+                    renderTableRows(rawWorkingCountries, true);
+                } else {
+                    rawWorkingCities.splice(idx, 1);
+                    renderTableRows(rawWorkingCities, false);
+                }
+            });
+        });
+    }
+
+    function applyDataFromEditor() {
+        try {
+            let sourceData = currentEditorMode === 'countries' ? rawWorkingCountries : rawWorkingCities;
+            let trs = document.querySelectorAll("#table-body tr");
+            
+            trs.forEach(tr => {
+                let nameInput = tr.querySelector(".row-name");
+                if(!nameInput) return; // заголовок или пустая
+                let name = nameInput.value.trim();
+                let flag = tr.querySelector(".row-flag").value;
+                let color = tr.querySelector(".row-color").value;
+
+                let item = sourceData.find(d => d.name === name && d.flag === flag);
+                
+                if (!item) {
+                    item = { _id: Math.random().toString(36).substr(2, 9), data: {} };
+                    sourceData.push(item);
+                }
+
+                item.flag = flag;
+                item.name = name;
+                item.color = color;
+                
+                if (currentEditorMode === 'countries') {
+                    let areaInput = tr.querySelector(".row-area");
+                    item.area = parseInt(areaInput.value.replace(/\s/g, ''), 10) || 1;
+                } else {
+                    item.area = 1000;
+                }
+                
+                let inputs = tr.querySelectorAll(".year-input");
+                inputs.forEach(inp => {
+                    let y = inp.getAttribute("data-year");
+                    let rawVal = parseInt(inp.value.replace(/\s/g, ''), 10) || 0;
+                    item.data[y] = rawVal;
+                });
+            });
+
+            loadData(sourceData);
+            alert("Изменения сохранены и применены к графику!");
+            
+            if (currentEditorMode === 'countries') document.getElementById("tab-countries").click();
+            else document.getElementById("tab-cities").click();
+        } catch (err) {
+            const errorMsg = document.getElementById("error-msg");
+            errorMsg.innerText = "Ошибка при сохранении! Проверьте формат.";
+            errorMsg.classList.remove("hidden");
+            setTimeout(() => errorMsg.classList.add("hidden"), 3000);
+        }
+    }
+
+    /* =========================================
+       ОБРАБОТЧИКИ СОБЫТИЙ
+       ========================================= */
+    document.addEventListener("DOMContentLoaded", () => {
+        const languageSelect=document.getElementById('language-select');
+        languageSelect.innerHTML=LANGUAGES.map(([code,label])=>`<option value="${code}">${label}</option>`).join('');
+        languageSelect.value=projectSettings.language;
+        if(!projectSettings.name)setProjectName(SUBJECTS[projectSettings.subject][projectSettings.language]||SUBJECTS[projectSettings.subject].en);
+        else setProjectName(projectSettings.name);
+        applyInterfaceLanguage();
+        languageSelect.addEventListener('change',()=>{projectSettings.language=languageSelect.value;setProjectName(projectSettings.name||SUBJECTS[projectSettings.subject][projectSettings.language]||SUBJECTS[projectSettings.subject].en);applyInterfaceLanguage();persistProjectSettings()});
+        document.getElementById('project-name').addEventListener('input',e=>{projectSettings.name=e.target.value;applyInterfaceLanguage();persistProjectSettings()});
+        const subjectSelect=document.getElementById('simulation-select');
+        const subjectQuick=document.getElementById('subject-quick');
+        subjectSelect.value=projectSettings.subject;
+        subjectQuick.value=projectSettings.subject;
+        document.getElementById('custom-metric').value=projectSettings.customMetric||'';
+        document.getElementById('custom-metric-wrap').classList.toggle('hidden',projectSettings.subject!=='custom');
+        document.getElementById('custom-metric').addEventListener('input',e=>{projectSettings.customMetric=e.target.value;persistProjectSettings();if(projectSettings.subject==='custom'&&e.target.value.trim()){setProjectName(e.target.value.trim());projectSettings.name=e.target.value.trim();applyInterfaceLanguage()}});
+        function setSimulationSubject(subject){projectSettings.subject=subject;subjectSelect.value=subject;subjectQuick.value=subject;projectSettings.name='';setProjectName(subject==='custom'?(projectSettings.customMetric||'Custom simulation'):(SUBJECTS[subject][projectSettings.language]||SUBJECTS[subject].en));document.getElementById('custom-metric-wrap').classList.toggle('hidden',subject!=='custom');applyInterfaceLanguage();persistProjectSettings()}
+        subjectSelect.addEventListener('change',()=>setSimulationSubject(subjectSelect.value));
+        subjectQuick.addEventListener('change',()=>setSimulationSubject(subjectQuick.value));
+        document.getElementById('metric-select').value=projectSettings.metric;
+        document.getElementById('metric-select').addEventListener('change',e=>{projectSettings.metric=e.target.value;state.metric=e.target.value;persistProjectSettings();if(!state.isPlaying)renderFrame(true)});
+        document.getElementById('simulation-select').value=projectSettings.subject;
+
+        const btnPlay = document.getElementById("btn-play");
+        const iconPlay = document.getElementById("icon-play");
+        const iconPause = document.getElementById("icon-pause");
+        const btnReset = document.getElementById("btn-reset");
+        const speedBtns = document.querySelectorAll(".speed-btn");
+        const slider = document.getElementById("year-slider");
+        const filterSelect = document.getElementById("group-filter");
+        
+        const btnSettings = document.getElementById("btn-settings");
+        const settingsPanel = document.getElementById("settings-panel");
+        const metricSelect = document.getElementById("metric-select");
+        const topNSelect = document.getElementById("top-n-select");
+        const autoZoomToggle = document.getElementById("auto-zoom");
+        const soundToggle = document.getElementById("sound-toggle");
+        
+        const tabCountries = document.getElementById("tab-countries");
+        const tabCities = document.getElementById("tab-cities");
+        const tabDataCountries = document.getElementById("tab-data-countries");
+        const tabDataCities = document.getElementById("tab-data-cities");
+        const viewViz = document.getElementById("view-viz");
+        const viewData = document.getElementById("view-data");
+        const timelineContainer = document.getElementById("timeline-container");
+        const editorTitle = document.getElementById("editor-title");
+        
+        const btnApplyData = document.getElementById("btn-apply-data");
+        const btnAddRow = document.getElementById("btn-add-row");
+        const btnClearAll = document.getElementById("btn-clear-all");
+        const btnSmoothData = document.getElementById("btn-smooth-data");
+        const btnAdd10YearsEditor = document.getElementById("btn-add-10-years-editor");
+        const extrapolateScenario = document.getElementById("extrapolate-scenario");
+
+        // Форматирование при вводе с учетом позиции курсора
+        document.getElementById('table-body').addEventListener('input', function(e) {
+            if (e.target.classList.contains('pop-input')) {
+                let input = e.target;
+                let cursorPosition = input.selectionStart;
+                let originalLength = input.value.length;
+                
+                // Оставляем только цифры
+                let rawValue = input.value.replace(/\D/g, '');
+                
+                // Форматируем обратно с пробелами
+                let formattedValue = formatNumberSpaces(rawValue);
+                
+                input.value = formattedValue;
+                
+                // Вычисляем, насколько сдвинулся курсор из-за добавления/удаления пробелов
+                let newLength = input.value.length;
+                let adjustment = newLength - originalLength;
+                
+                input.setSelectionRange(cursorPosition + adjustment, cursorPosition + adjustment);
+            }
+        });
+
+        // Навигация с клавиатуры
+        document.getElementById('table-body').addEventListener('keydown', (e) => {
+            if (!e.target.classList.contains('pop-input') && !e.target.classList.contains('row-name') && !e.target.classList.contains('row-flag')) return;
+            const currentInput = e.target;
+            const currentTd = currentInput.closest('td');
+            const currentTr = currentTd.closest('tr');
+            const trs = Array.from(currentTr.parentElement.children);
+            const tds = Array.from(currentTr.children);
+            const tdIndex = tds.indexOf(currentTd);
+            const trIndex = trs.indexOf(currentTr);
+
+            let nextInput;
+
+            if (e.key === "Enter" || e.key === "ArrowDown") {
+                if (trIndex < trs.length - 1) nextInput = trs[trIndex + 1].children[tdIndex].querySelector('input');
+                e.preventDefault();
+            } else if (e.key === "ArrowUp") {
+                if (trIndex > 0) nextInput = trs[trIndex - 1].children[tdIndex].querySelector('input');
+                e.preventDefault();
+            } else if (e.key === "ArrowRight") {
+                if (currentInput.selectionEnd === currentInput.value.length) {
+                    if (tdIndex < currentTr.children.length - 1) nextInput = currentTr.children[tdIndex + 1].querySelector('input');
+                    e.preventDefault();
+                }
+            } else if (e.key === "ArrowLeft") {
+                if (currentInput.selectionStart === 0) {
+                    if (tdIndex > 0) nextInput = currentTr.children[tdIndex - 1].querySelector('input');
+                    e.preventDefault();
+                }
+            }
+            if (nextInput) nextInput.focus();
+        });
+
+        // Настройки UI
+        btnSettings.addEventListener("click", () => {
+            settingsPanel.classList.toggle("hidden");
+        });
+        document.addEventListener("click", (e) => {
+            if(!btnSettings.contains(e.target) && !settingsPanel.contains(e.target)) {
+                settingsPanel.classList.add("hidden");
+            }
+        });
+
+        metricSelect.addEventListener("change", (e) => {
+            state.metric = e.target.value;
+            if(!state.isPlaying) renderFrame(true);
+        });
+
+        topNSelect.addEventListener("change", (e) => {
+            state.topN = parseInt(e.target.value);
+            initD3();
+            if(!state.isPlaying) renderFrame(true);
+        });
+
+        autoZoomToggle.addEventListener("change", (e) => {
+            state.autoZoom = e.target.checked;
+            if(!state.isPlaying) renderFrame(true);
+        });
+
+        soundToggle.addEventListener("change", (e) => {
+            state.soundEnabled = e.target.checked;
+            if(state.soundEnabled && !audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+        });
+
+        document.getElementById('install-app').addEventListener('click',async()=>{if(window.__installPrompt){window.__installPrompt.prompt();await window.__installPrompt.userChoice;window.__installPrompt=null;document.getElementById('install-app').style.display='none'}else alert('Для iPhone/iPad откройте меню «Поделиться» в Safari и выберите «На экран Домой». Для ПК и Android используйте меню браузера → «Установить приложение» или «Добавить на главный экран».')});
+
+        function applyFilter() {
+            let sourceData = state.mode === 'countries' ? rawWorkingCountries : rawWorkingCities;
+            if (state.filterCategory !== "all") {
+                sourceData = sourceData.filter(item => {
+                    const tags = getTagsForItem(item.name, state.mode, item.flag);
+                    return tags.includes(state.filterCategory);
+                });
+            }
+            loadData(sourceData, true); 
+        }
+
+        filterSelect.addEventListener("change", (e) => {
+            state.filterCategory = e.target.value;
+            applyFilter();
+            if (!state.isPlaying) renderFrame(true);
+        });
+
+        function switchTab(tabId) {
+            [tabCountries, tabCities, tabDataCountries, tabDataCities].forEach(t => {
+                t.classList.remove("active", "text-blue-500");
+                t.classList.add("text-slate-400");
+            });
+            
+            viewViz.classList.add("hidden");
+            viewData.classList.add("hidden");
+            timelineContainer.classList.add("hidden");
+
+            if (tabId === 'countries') {
+                tabCountries.classList.add("active");
+                tabCountries.classList.remove("text-slate-400");
+                viewViz.classList.remove("hidden");
+                timelineContainer.classList.remove("hidden");
+                state.mode = 'countries';
+                applyFilter();
+            } else if (tabId === 'cities') {
+                tabCities.classList.add("active");
+                tabCities.classList.remove("text-slate-400");
+                viewViz.classList.remove("hidden");
+                timelineContainer.classList.remove("hidden");
+                state.mode = 'cities';
+                applyFilter();
+            } else if (tabId === 'data-countries') {
+                tabDataCountries.classList.add("active");
+                tabDataCountries.classList.remove("text-slate-400");
+                viewData.classList.remove("hidden");
+                editorTitle.innerText = "Редактор: Страны";
+                currentEditorMode = 'countries';
+                pauseAnimation();
+                initTableEditor(rawWorkingCountries);
+            } else if (tabId === 'data-cities') {
+                tabDataCities.classList.add("active");
+                tabDataCities.classList.remove("text-slate-400");
+                viewData.classList.remove("hidden");
+                editorTitle.innerText = "Редактор: Города";
+                currentEditorMode = 'cities';
+                pauseAnimation();
+                initTableEditor(rawWorkingCities);
+            }
+        }
+
+        tabCountries.addEventListener("click", () => switchTab('countries'));
+        tabCities.addEventListener("click", () => switchTab('cities'));
+        tabDataCountries.addEventListener("click", () => switchTab('data-countries'));
+        tabDataCities.addEventListener("click", () => switchTab('data-cities'));
+
+        function togglePlay() {
+            state.isPlaying = !state.isPlaying;
+            if (state.isPlaying) {
+                if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+                iconPlay.classList.add("hidden");
+                iconPause.classList.remove("hidden");
+                btnPlay.classList.remove("bg-blue-600", "hover:bg-blue-500");
+                btnPlay.classList.add("bg-amber-600", "hover:bg-amber-500");
+                if (state.currentYear >= state.maxYear) state.currentYear = state.minYear;
+                lastTime = performance.now();
+                animationFrameId = requestAnimationFrame(gameLoop);
+            } else {
+                pauseAnimation();
+            }
+        }
+
+        function pauseAnimation() {
+            state.isPlaying = false;
+            iconPlay.classList.remove("hidden");
+            iconPause.classList.add("hidden");
+            btnPlay.classList.add("bg-blue-600", "hover:bg-blue-500");
+            btnPlay.classList.remove("bg-amber-600", "hover:bg-amber-500");
+            if (animationFrameId) cancelAnimationFrame(animationFrameId);
+        }
+
+        btnPlay.addEventListener("click", togglePlay);
+
+        btnReset.addEventListener("click", () => {
+            pauseAnimation();
+            state.currentYear = state.minYear;
+            slider.value = state.currentYear;
+            renderFrame(true); 
+        });
+
+        slider.addEventListener("input", (e) => {
+            pauseAnimation();
+            state.currentYear = parseFloat(e.target.value);
+            renderFrame(true);
+        });
+
+        speedBtns.forEach(btn => {
+            btn.addEventListener("click", (e) => {
+                speedBtns.forEach(b => {
+                    b.classList.remove("bg-blue-600", "text-white");
+                    b.classList.add("hover:bg-slate-700", "text-slate-300");
+                });
+                e.target.classList.add("bg-blue-600", "text-white");
+                e.target.classList.remove("hover:bg-slate-700", "text-slate-300");
+                state.msPerYear = parseInt(e.target.getAttribute("data-speed"));
+            });
+        });
+
+        // Сглаживание данных
+        btnSmoothData.addEventListener("click", () => {
+            let activeData = currentEditorMode === 'countries' ? rawWorkingCountries : rawWorkingCities;
+            if(allYearsKeys.length < 3) return;
+            
+            activeData.forEach(item => {
+                let newVals = {};
+                allYearsKeys.forEach((y, i) => {
+                    if(i === 0 || i === allYearsKeys.length - 1) {
+                        newVals[y] = item.data[y] || 0;
+                    } else {
+                        let prev = item.data[allYearsKeys[i-1]] || 0;
+                        let curr = item.data[y] || 0;
+                        let next = item.data[allYearsKeys[i+1]] || 0;
+                        newVals[y] = Math.floor((prev + curr + next) / 3);
+                    }
+                });
+                item.data = newVals;
+            });
+            initTableEditor(activeData);
+            alert("Данные сглажены (заполнены провалы). Нажмите 'Применить', чтобы сохранить.");
+        });
+
+        // Добавление +10 лет через редактор со сценариями
+        btnAdd10YearsEditor.addEventListener("click", () => {
+            let activeData = currentEditorMode === 'countries' ? rawWorkingCountries : rawWorkingCities;
+            let scenario = extrapolateScenario.value;
+            
+            if (allYearsKeys.length > 0) {
+                let currentMax = allYearsKeys[allYearsKeys.length - 1];
+                let prevYear = allYearsKeys.length > 1 ? allYearsKeys[allYearsKeys.length - 2] : currentMax - 10;
+                let newYear = currentMax + 10;
+
+                activeData.forEach(item => {
+                    let valMax = item.data[currentMax] || 0;
+                    let valPrev = item.data[prevYear] || valMax;
+
+                    if (valMax === 0) {
+                        item.data[newYear] = 0;
+                        return;
+                    }
+
+                    let factor = valMax / valPrev;
+                    
+                    if(scenario === 'boom') factor = Math.max(factor, 1.15); // Бэби-бум
+                    else if(scenario === 'stagnation') factor = 1.0; // Стагнация
+                    else if(scenario === 'decline') factor = Math.min(factor, 0.95); // Спад
+                    else {
+                        // Тренд
+                        factor = 1 + (factor - 1) * 0.95;
+                        factor = Math.min(Math.max(factor, 0.8), 1.5);
+                    }
+
+                    item.data[newYear] = Math.floor(valMax * factor);
+                });
+                
+                initTableEditor(activeData);
+                
+                // Скроллим вправо к новой колонке
+                setTimeout(() => {
+                    const scrollCont = document.getElementById("table-scroll-container");
+                    if (scrollCont) scrollCont.scrollTo({ left: scrollCont.scrollWidth, behavior: 'smooth' });
+                }, 100);
+            }
+        });
+
+        btnApplyData.addEventListener("click", applyDataFromEditor);
+
+        btnAddRow.addEventListener("click", () => {
+            let isCountries = currentEditorMode === 'countries';
+            let newRow = { 
+                _id: Math.random().toString(36).substr(2, 9),
+                name: isCountries ? "Новая страна" : "Новый город", 
+                flag: "🏳️", 
+                color: "#3b82f6", 
+                data: {} 
+            };
+            if (isCountries) newRow.area = 100000;
+            allYearsKeys.forEach(y => newRow.data[y] = 1000000);
+            let arrToUpdate = isCountries ? rawWorkingCountries : rawWorkingCities;
+            arrToUpdate.unshift(newRow); 
+            renderTableRows(arrToUpdate, isCountries);
+            document.getElementById("table-scroll-container").scrollTop = 0;
+        });
+
+        btnClearAll.addEventListener("click", () => {
+            if(confirm("Вы уверены, что хотите обнулить ВСЕ значения в текущей таблице?")) {
+                const popInputs = document.querySelectorAll('#table-body .pop-input');
+                popInputs.forEach(input => {
+                    input.value = "0"; 
+                    input.classList.add("bg-red-900/40");
+                    setTimeout(() => input.classList.remove("bg-red-900/40"), 200);
+                });
+            }
+        });
+
+        initD3();
+        loadData(rawWorkingCountries, true);
+    });
+
+    window.addEventListener('resize', () => {
+        const container = document.getElementById("chart-container");
+        width = container.clientWidth;
+        axisSvg.attr("width", "100%");
+        svg.attr("width", "100%");
+        xScale.range([0, width - margin.left - margin.right]);
+        renderFrame(true); 
+    });
+
+</script>
+<script>
+    if ('serviceWorker' in navigator && location.protocol!=='file:') navigator.serviceWorker.register('./sw.js').catch(()=>{});
+    window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();window.__installPrompt=e;document.getElementById('install-app').style.display='inline-flex'});
+    window.addEventListener('appinstalled',()=>document.getElementById('install-app').style.display='none');
+</script>
+</body>
+</html>

@@ -1,0 +1,7 @@
+{
+  "appId": "com.atlas.simulationstudio",
+  "appName": "Atlas Simulation Studio",
+  "webDir": "public",
+  "server": {"androidScheme":"https"},
+  "android": {"path":"android"}
+}
