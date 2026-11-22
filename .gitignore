@@ -1,0 +1,34 @@
+node_modules/
+win-installer.obj
+
+# Android build caches and generated outputs
+android/.gradle/
+android/app/build/
+android/local.properties
+
+# Local Android signing credentials: never commit these
+installer-output/keys/
+
+# Downloaded SDK/JDK/Gradle toolchains and temporary build files
+installer-output/android-sdk/
+installer-output/android-sdk-stage/
+installer-output/jdk17/
+installer-output/gradle-8.11.1/
+installer-output/.gradle-home/
+installer-output/tmp/
+installer-output/build-tools-stage/
+installer-output/apk-assets/
+installer-output/*.zip
+installer-output/*.part
+installer-output/*.parts/
+installer-output/*.small-parts/
+installer-output/download_*.*
+
+# Generated Android intermediates; native source remains tracked
+installer-output/android-native/classes/
+installer-output/android-native/dex/
+
+# Temporary SDK inspection data
+installer-output/repository2-3.xml
+installer-output/show_sdk_packages.py
+
