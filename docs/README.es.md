@@ -31,6 +31,7 @@ Atlas Simulation Studio es una aplicación web progresiva con un diseño profesi
 ## ✨ Funciones
 
 - Catálogo inicial de 150 países y 244 ciudades
+- Época inicial: 1800, 1900, 1950, 2000 o 2026, con la población y las banderas históricas de ese año
 - Línea temporal y gráficos, más un editor de datos para países y ciudades
 - Panel **Participantes**: filtros por país, continente, subregión, organización internacional y población
 - Acciones de filtro: activar todos, desactivar todos, dejar solo las coincidencias, añadir coincidencias o excluirlas
@@ -101,7 +102,7 @@ La aplicación ofrece una elección de **35 idiomas**: ruso, inglés, español, 
 
 ## ⚠️ Precisión de la simulación
 
-La población de las ciudades recién añadidas son estimaciones orientativas redondeadas para 2020; los límites de la ciudad y de la aglomeración pueden diferir entre los conjuntos de datos de origen. Las series históricas y las previsiones de las ciudades añadidas recientemente se construyen con un modelo simplificado para la visualización; no constituyen una serie estadística oficial.
+La población de las ciudades recién añadidas son estimaciones orientativas redondeadas para 2020; los límites de la ciudad y de la aglomeración pueden diferir entre los conjuntos de datos de origen. Las épocas históricas usan las fronteras actuales. Las cifras de 1800 y 1900 están redondeadas a partir de Our World in Data (HYDE 3.3; Gapminder v7, basado en el Maddison Project y Clio Infra). Desde 1950, incluido el inicio en 2026, se conserva la serie del catálogo (ONU, World Population Prospects). Las ciudades conocidas siguen a Chandler, Bairoch y UN World Urbanization Prospects. Las series históricas y las previsiones de las ciudades añadidas recientemente se construyen con un modelo simplificado para la visualización; no constituyen una serie estadística oficial.
 
 Los modos de PIB, producción, migración y delincuencia permiten elegir un objeto y un nombre de proyecto, pero no sustituyen los datos demográficos por estadísticas de esos ámbitos: las series de origen introducidas en el editor siguen siendo demográficas. Para que esos modos den un resultado significativo, habría que ampliar el editor con conjuntos de métricas personalizadas independientes y cargar datos para ellos. Por tanto, los valores de las métricas en competición etiquetados como **índice demo** no deben interpretarse como indicadores reales.
 

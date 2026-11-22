@@ -31,6 +31,7 @@ Atlas Simulation Studio is a professionally designed progressive web app based o
 ## ✨ Features
 
 - Starting catalog of 150 countries and 244 cities
+- Starting era: 1800, 1900, 1950, 2000 or 2026, with historical population and flags for that year
 - Timeline and charts, plus a data editor for countries and cities
 - **Participants** filter panel: filter by country, continent, subregion, international organization, and population
 - Filter actions: enable all, disable all, keep only matches, add matches, or exclude matches
@@ -101,7 +102,7 @@ The app offers a choice of **35 languages**: Russian, English, Spanish, French, 
 
 ## ⚠️ Simulation accuracy
 
-Population figures for newly added cities are rounded approximate estimates for 2020; city and agglomeration boundaries may differ across source datasets. Historical series and forecasts for recently added cities are produced by a simplified model for visualization; they are not an official statistical series.
+Population figures for newly added cities are rounded approximate estimates for 2020; city and agglomeration boundaries may differ across source datasets. Historical starting eras use present-day borders. Figures for 1800 and 1900 are rounded from Our World in Data (HYDE 3.3; Gapminder v7, based on the Maddison Project and Clio Infra). From 1950 through the 2026 start, the existing catalog series is kept (UN World Population Prospects vintage). Named city anchors follow Chandler, Bairoch and UN World Urbanization Prospects. Historical series and forecasts for recently added cities are produced by a simplified model for visualization; they are not an official statistical series.
 
 The GDP, production, migration, and crime modes let you choose a subject and a project name, but they do not replace the demographic data with statistics from those domains: the source series entered in the editor remain demographic. For those modes to produce a meaningful result, the editor would need to be extended for separate custom metric sets, and data would need to be loaded for them. Values of competing metrics labeled **demo index** must not be interpreted as real-world indicators.
 

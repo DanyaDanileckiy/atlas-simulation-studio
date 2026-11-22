@@ -31,6 +31,7 @@ Atlas Simulation Studio ist eine professionell gestaltete Progressive Web App au
 ## ✨ Funktionen
 
 - Startkatalog mit 150 Ländern und 244 Städten
+- Start-Epoche: 1800, 1900, 1950, 2000 oder 2026, mit historischen Bevölkerungszahlen und Flaggen dieses Jahres
 - Zeitleiste und Diagramme sowie ein Dateneditor für Länder und Städte
 - Filterpanel **Teilnehmer**: Filter nach Land, Kontinent, Unterregion, internationaler Organisation und Bevölkerung
 - Filteraktionen: alle aktivieren, alle deaktivieren, nur Treffer behalten, Treffer hinzufügen oder Treffer ausschließen
@@ -101,7 +102,7 @@ Die App bietet eine Auswahl aus **35 Sprachen**: Russisch, Englisch, Spanisch, F
 
 ## ⚠️ Simulationsgenauigkeit
 
-Die Bevölkerungszahlen neu hinzugefügter Städte sind gerundete Richtwerte für das Jahr 2020; Stadt- und Agglomerationsgrenzen können sich in den Ausgangsdatensätzen unterscheiden. Historische Reihen und Prognosen für kürzlich hinzugefügte Städte basieren auf einem vereinfachten Modell zur Visualisierung und stellen keine offizielle Statistikreihe dar.
+Die Bevölkerungszahlen neu hinzugefügter Städte sind gerundete Richtwerte für das Jahr 2020; Stadt- und Agglomerationsgrenzen können sich in den Ausgangsdatensätzen unterscheiden. Historische Epochen beziehen sich auf heutige Grenzen. Die Werte für 1800 und 1900 sind gerundete Angaben von Our World in Data (HYDE 3.3; Gapminder v7 auf Basis von Maddison Project und Clio Infra). Ab 1950, einschließlich des Starts 2026, bleibt die Katalogreihe unverändert (UN World Population Prospects). Bekannte Städte folgen Chandler, Bairoch und den UN World Urbanization Prospects. Historische Reihen und Prognosen für kürzlich hinzugefügte Städte basieren auf einem vereinfachten Modell zur Visualisierung und stellen keine offizielle Statistikreihe dar.
 
 Die Modi BIP, Produktion, Migration und Kriminalität erlauben die Wahl eines Gegenstands und eines Projektnamens, ersetzen die demografischen Daten aber nicht durch Statistiken aus diesen Bereichen: Die im Editor eingegebenen Ausgangsreihen bleiben demografisch. Damit diese Modi ein inhaltlich tragfähiges Ergebnis liefern, müsste der Editor um eigene Sätze benutzerdefinierter Metriken erweitert und dafür Daten geladen werden. Werte konkurrierender Metriken mit der Kennzeichnung **Demo-Index** dürfen daher nicht als reale Kennzahlen interpretiert werden.
 
