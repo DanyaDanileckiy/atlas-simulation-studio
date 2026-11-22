@@ -116,6 +116,16 @@
                 <select id="subject-quick" class="bg-transparent text-white text-sm focus:outline-none w-32 cursor-pointer"><option value="demography">Демография</option><option value="gdp">ВВП</option><option value="production">Производство</option><option value="migration">Миграция</option><option value="crime">Преступность</option><option value="custom">Своя метрика</option></select>
             </div>
             <div class="flex items-center gap-2 bg-slate-900 p-2 rounded-lg border border-slate-700">
+                <label for="era-quick" class="text-slate-400 text-xs" data-i18n="era">Эпоха</label>
+                <select id="era-quick" class="bg-transparent text-white text-sm focus:outline-none w-20 cursor-pointer" aria-label="Эпоха">
+                    <option value="1800">1800</option>
+                    <option value="1900">1900</option>
+                    <option value="1950">1950</option>
+                    <option value="2000">2000</option>
+                    <option value="2026" selected>2026</option>
+                </select>
+            </div>
+            <div class="flex items-center gap-2 bg-slate-900 p-2 rounded-lg border border-slate-700">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-slate-400" viewBox="0 0 20 20" fill="currentColor">
                     <path fill-rule="evenodd" d="M3 3a1 1 0 011-1h12a1 1 0 011 1v3a1 1 0 01-.293.707L12 11.414V15a1 1 0 01-.293.707l-2 2A1 1 0 018 17v-5.586L3.293 6.707A1 1 0 013 6V3z" clip-rule="evenodd" />
                 </svg>
@@ -162,6 +172,17 @@
             
             <!-- Выпадающее меню настроек -->
             <div id="settings-panel" class="hidden absolute top-full right-4 mt-2 w-72 bg-slate-800 border border-slate-600 rounded-lg shadow-2xl z-50 p-4 flex flex-col gap-4">
+                <div>
+                    <label for="era-select" class="block text-xs text-slate-400 mb-1" data-i18n="era">Эпоха</label>
+                    <select id="era-select" class="w-full bg-slate-900 border border-slate-700 rounded p-1.5 text-sm text-white focus:outline-none">
+                        <option value="1800">1800</option>
+                        <option value="1900">1900</option>
+                        <option value="1950">1950</option>
+                        <option value="2000">2000</option>
+                        <option value="2026" selected>2026</option>
+                    </select>
+                    <p class="text-[11px] text-slate-500 mt-1" data-i18n="eraHint">Старт гонки, население и флаги выбранного года.</p>
+                </div>
                 <div>
                     <label class="block text-xs text-slate-400 mb-1">Метрика гонки</label>
                     <select id="metric-select" class="w-full bg-slate-900 border border-slate-700 rounded p-1.5 text-sm text-white focus:outline-none">
@@ -233,8 +254,8 @@
             </div>
 
             <div class="flex-1 flex items-center gap-3 min-w-[200px]">
-                <span class="text-xs text-slate-400 font-mono font-medium bg-slate-900 px-2 py-1 rounded">1900</span>
-                <input type="range" id="year-slider" min="1900" max="2100" step="0.1" value="1900" 
+                <span id="min-year-label" class="text-xs text-slate-400 font-mono font-medium bg-slate-900 px-2 py-1 rounded">2026</span>
+                <input type="range" id="year-slider" min="2026" max="2100" step="0.1" value="2026" 
                        class="flex-1 h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500 hover:accent-blue-400 transition-all">
                 <span id="max-year-label" class="text-xs text-slate-400 font-mono font-medium bg-slate-900 px-2 py-1 rounded">2100</span>
             </div>
@@ -257,7 +278,7 @@
 
         <div id="view-viz" class="flex-1 w-full relative p-4 flex flex-col min-h-0">
             <div id="chart-wrapper" class="w-full flex-1 bg-slate-900 rounded-xl border border-slate-800 shadow-inner flex flex-col relative overflow-hidden z-10">
-                <div id="year-bg-html" class="absolute bottom-4 right-8 text-[140px] sm:text-[200px] font-extrabold text-white opacity-[0.03] pointer-events-none tabular-nums z-0 leading-none">1900</div>
+                <div id="year-bg-html" class="absolute bottom-4 right-8 text-[140px] sm:text-[200px] font-extrabold text-white opacity-[0.03] pointer-events-none tabular-nums z-0 leading-none">2026</div>
                 <div id="axis-container" class="w-full h-[40px] bg-slate-900/90 backdrop-blur z-20 border-b border-slate-700/50 shrink-0"></div>
                 <div id="chart-container" class="w-full flex-1 overflow-y-auto overflow-x-hidden relative z-10 scroll-smooth"></div>
             </div>
@@ -767,7 +788,7 @@
         try { const result=new Intl.DisplayNames([projectSettings.language],{type:'region'}).of(code); return result&&result!==code?result:name; } catch { return name; }
     }
     function getDisplayItemName(item, mode) {
-        return mode==='countries'?localizedCountryName(item.name,item.flag):item.name;
+        return mode==='countries'?localizedCountryName(item.name,item.isoFlag||item.flag):item.name;
     }
     function refreshEditorCountryNames() {
         document.querySelectorAll('#table-body .row-name').forEach(input=>{
@@ -853,9 +874,9 @@
        ========================================= */
     let currentData = [];
     let state = {
-        minYear: 1900,
+        minYear: 2026,
         maxYear: 2100,
-        currentYear: 1900,
+        currentYear: 2026,
         isPlaying: false,
         msPerYear: 15000,
         topN: 500,
@@ -871,20 +892,453 @@
     for(const mode of ['countries','cities']) if(!participantSelection[mode]||!['all','none','custom'].includes(participantSelection[mode].mode)) participantSelection[mode]={mode:'all',names:[]};
     const saveParticipantSelection=()=>localStorage.setItem(participantSelectionKey,JSON.stringify(participantSelection));
 
+    /* Эпохи старта.
+       Население 1800 и 1900 — оценки для СОВРЕМЕННЫХ границ, округление до тысяч,
+       длинный ряд Our World in Data (HYDE 3.3 до 1799; Gapminder v7 за 1800–1949,
+       он опирается на Maddison Project и Clio Infra). Ирландия: островной ряд
+       Gapminder, доля нынешней Республики по соотношению 1950 года.
+       1950, 2000 и сам ряд 2026 не подменяются: это уже введённый каталог
+       (ориентир ООН World Population Prospects на 1950–2020, прогноз каталога дальше).
+       2026 только сдвигает старт шкалы на 2026 год и оставляет те же числа и флаги.
+       Города: опубликованные ориентиры (Chandler, Bairoch, UN World Urbanization
+       Prospects) для крупных центров; остальные масштабируются от населения страны
+       с поправкой на более низкую урбанизацию. Города, которых ещё не было, скрыты.
+       Флаги — встроенный SVG (data URI), без сети.
+       Карта: каталог стран не заменяется, поэтому фильтры, сохранённые списки,
+       редактор и локализация работают по тем же именам. Если в выборке есть все
+       части одного государства, они сливаются в одну полосу (империя / союз).
+       Колонии остаются отдельными территориями с флагом метрополии.
+       Частично выбранная империя не сливается: видны только отмеченные страны,
+       но уже с флагом эпохи. */
+    const ERA_YEARS = [1800, 1900, 1950, 2000, 2026];
+    const HIST_POP = {"Индия":[200733000,280714000],"Китай":[330000000,395929000],"США":[6000000,74830000],"Индонезия":[16109000,38180000],"Пакистан":[13120000,18263000],"Нигерия":[12101000,18664000],"Бразилия":[2500000,18059000],"Бангладеш":[19191000,26850000],"Россия":[31296000,64844000],"Мексика":[5100000,13261000],"Эфиопия":[12033000,17719000],"Япония":[28000000,44417000],"Филиппины":[2500000,6644000],"Египет":[3500000,9940000],"ДР Конго":[5164000,9452000],"Вьетнам":[4000000,11801000],"Иран":[6000000,10122000],"Турция":[9761000,13973000],"Германия":[18000000,55775000],"Таиланд":[3000000,7412000],"Великобритания":[10750000,41090000],"Танзания":[3000000,4975000],"Франция":[29000000,40019000],"ЮАР":[1448000,5164000],"Италия":[19000000,33332000],"Кения":[2574000,3951000],"Мьянма":[6000000,9411000],"Колумбия":[1206000,4035000],"Южная Корея":[9395000,9688000],"Уганда":[2500000,3774000],"Судан":[3994000,5165000],"Испания":[11500000,18592000],"Аргентина":[534000,4685000],"Алжир":[2500000,4722000],"Ирак":[1000000,2399000],"Афганистан":[3280000,4708000],"Польша":[9000000,24313000],"Канада":[500000,5414000],"Марокко":[2500000,4681000],"Саудовская Аравия":[2000000,2124000],"Украина":[11215000,23480000],"Ангола":[1567000,3102000],"Узбекистан":[1919000,3926000],"Йемен":[2593000,2967000],"Перу":[1271000,3657000],"Малайзия":[287000,2094000],"Гана":[2016000,2717000],"Мозамбик":[2000000,4251000],"Непал":[4000000,5116000],"Мадагаскар":[1500000,2678000],"Кот-д'Ивуар":[1089000,1505000],"Венесуэла":[1000000,2700000],"Камерун":[1860000,3217000],"Нигер":[853000,1320000],"Австралия":[200000,3693000],"КНДР":[4345000,5432000],"Тайвань":[2000000,2810000],"Мали":[1403000,2331000],"Буркина-Фасо":[1665000,2299000],"Сирия":[1250000,1769000],"Шри-Ланка":[1750000,4063000],"Малави":[737000,2067000],"Замбия":[747000,1613000],"Румыния":[5500000,11005000],"Чили":[771000,3145000],"Казахстан":[2041000,4162000],"Чад":[1432000,1797000],"Эквадор":[500000,1451000],"Сомали":[989000,1520000],"Гватемала":[463000,1353000],"Сенегал":[1010000,1377000],"Нидерланды":[2000000,5140000],"Камбоджа":[2090000,2839000],"Зимбабве":[1086000,1111000],"Гвинея":[984000,1533000],"Руанда":[928000,1516000],"Бенин":[637000,1188000],"Бурунди":[899000,1628000],"Тунис":[800000,1879000],"Боливия":[887000,1813000],"Бельгия":[3250000,6706000],"Гаити":[500000,1617000],"Куба":[272000,1720000],"Южный Судан":[1027000,1863000],"Доминиканская Респ.":[150000,521000],"Чехия":[5516000,9334000],"Греция":[2250000,4990000],"Иордания":[200000,254000],"Португалия":[2750000,5403000],"Азербайджан":[880000,1938000],"Швеция":[2500000,5124000],"Гондурас":[130000,530000],"ОАЭ":[40000,49000],"Венгрия":[3250000,7106000],"Таджикистан":[467000,958000],"Беларусь":[2355000,4986000],"Австрия":[3000000,5979000],"Папуа Новая Гвинея":[755000,842000],"Сербия":[2147000,2314000],"Израиль":[210000,359000],"Швейцария":[1750000,3298000],"Того":[446000,746000],"Сьерра-Леоне":[794000,1096000],"Гонконг":[20000,311000],"Лаос":[470000,1379000],"Парагвай":[300000,464000],"Болгария":[2250000,3956000],"Ливия":[230000,514000],"Ливан":[300000,501000],"Никарагуа":[186000,554000],"Кыргызстан":[530000,1101000],"Сальвадор":[248000,839000],"Туркменистан":[367000,761000],"Сингапур":[30000,212000],"Дания":[1000000,2565000],"Финляндия":[800000,2642000],"Конго":[314000,607000],"Словакия":[2141000,2866000],"Норвегия":[900000,2233000],"Оман":[300000,380000],"Палестина":[166000,292000],"Коста-Рика":[53000,317000],"Либерия":[314000,490000],"Ирландия":[3570000,3010000],"ЦАР":[479000,1044000],"Новая Зеландия":[200000,809000],"Мавритания":[383000,359000],"Панама":[76000,257000],"Кувейт":[81000,99000],"Хорватия":[1228000,2493000],"Молдова":[713000,1485000],"Грузия":[1072000,2220000],"Эритрея":[205000,572000],"Уругвай":[55000,920000],"Босния и Герцеговина":[852000,1764000],"Монголия":[600000,697000],"Армения":[413000,863000],"Ямайка":[300000,728000],"Катар":[14000,16000],"Албания":[400000,806000],"Литва":[779000,2523000],"Намибия":[229000,204000],"Гамбия":[103000,167000],"Ботсвана":[121000,166000],"Габон":[158000,370000],"Лесото":[276000,249000],"Северная Македония":[392000,802000],"Словения":[470000,937000],"Гвинея-Бисау":[218000,295000],"Латвия":[591000,2149000]};
+    const currentEra = () => (ERA_YEARS.includes(Number(projectSettings && projectSettings.era)) ? Number(projectSettings.era) : 2026);
+    const eraText = bag => !bag ? null : (typeof bag === 'string' ? bag : (bag[projectSettings.language] || bag.en));
+
+    function flagUri(body) {
+        const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 40">${body}<rect width="60" height="40" fill="none" stroke="rgba(15,23,42,.45)" stroke-width="1.5"/></svg>`;
+        return 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg);
+    }
+    function bands(colors, vertical) {
+        const n = colors.length;
+        return colors.map((color, i) => vertical
+            ? `<rect x="${(i * 60 / n).toFixed(2)}" width="${(60 / n + 0.4).toFixed(2)}" height="40" fill="${color}"/>`
+            : `<rect y="${(i * 40 / n).toFixed(2)}" height="${(40 / n + 0.4).toFixed(2)}" width="60" fill="${color}"/>`).join('');
+    }
+    function star(cx, cy, r, fill) {
+        const pts = [];
+        for (let i = 0; i < 5; i++) {
+            const outer = -Math.PI / 2 + i * 2 * Math.PI / 5;
+            const inner = outer + Math.PI / 5;
+            pts.push([cx + Math.cos(outer) * r, cy + Math.sin(outer) * r], [cx + Math.cos(inner) * r * 0.4, cy + Math.sin(inner) * r * 0.4]);
+        }
+        return `<polygon points="${pts.map(p => p[0].toFixed(1) + ',' + p[1].toFixed(1)).join(' ')}" fill="${fill}"/>`;
+    }
+    function unionJack() {
+        return '<g><rect width="60" height="40" fill="#012169"/><path d="M0 0 L60 40 M60 0 L0 40" stroke="#fff" stroke-width="8"/><path d="M0 0 L60 40 M60 0 L0 40" stroke="#C8102E" stroke-width="3.2"/><rect x="24" width="12" height="40" fill="#fff"/><rect y="14" width="60" height="12" fill="#fff"/><rect x="26.5" width="7" height="40" fill="#C8102E"/><rect y="16.5" width="60" height="7" fill="#C8102E"/></g>';
+    }
+    function canton(w, h) {
+        return `<svg x="0" y="0" width="${w}" height="${h}" viewBox="0 0 60 40">${unionJack()}</svg>`;
+    }
+    function usStripes(count, starCount) {
+        let body = '';
+        for (let i = 0; i < count; i++) body += `<rect y="${(i * 40 / count).toFixed(2)}" width="60" height="${(40 / count + 0.35).toFixed(2)}" fill="${i % 2 ? '#fff' : '#B22234'}"/>`;
+        const cantonH = (Math.round(count * 0.54) * 40 / count);
+        body += `<rect width="26" height="${cantonH.toFixed(2)}" fill="#3C3B6E"/>`;
+        const cols = starCount > 20 ? 8 : 5;
+        const rows = Math.ceil(starCount / cols);
+        for (let i = 0; i < starCount; i++) {
+            const col = i % cols, row = Math.floor(i / cols);
+            body += `<circle cx="${2.2 + col * (22 / cols)}" cy="${1.5 + row * ((cantonH - 2) / rows)}" r="${starCount > 20 ? 0.7 : 1.15}" fill="#fff"/>`;
+        }
+        return body;
+    }
+    const FLAGS = {
+        ru_emp: flagUri(bands(['#000', '#FFD700', '#fff'])),
+        ussr: flagUri(`<rect width="60" height="40" fill="#CE1126"/>${star(30, 11, 6, '#FFD700')}<path d="M14 30c8-10 16-8 18-1" fill="none" stroke="#FFD700" stroke-width="2"/><rect x="20" y="22" width="12" height="2.2" fill="#FFD700" transform="rotate(-35 26 23)"/>`),
+        qing: flagUri(`<rect width="60" height="40" fill="#FFDE00"/><circle cx="14" cy="13" r="4" fill="#DE2910"/><path d="M6 32 C16 16 24 10 34 16 C44 22 48 14 54 18" fill="none" stroke="#1D4ED8" stroke-width="5" stroke-linecap="round"/><path d="M10 30 C22 24 36 30 50 26" fill="none" stroke="#1E3A8A" stroke-width="3.5" stroke-linecap="round"/>`),
+        ottoman: flagUri(`<rect width="60" height="40" fill="#E30A17"/><circle cx="24" cy="20" r="8" fill="#fff"/><circle cx="27" cy="20" r="6.3" fill="#E30A17"/>${star(36, 20, 4.2, '#fff')}`),
+        habsburg: flagUri(bands(['#000', '#FCD116'])),
+        ah: flagUri('<rect width="30" height="20" fill="#000"/><rect y="20" width="30" height="20" fill="#FCD116"/><rect x="30" width="30" height="13.4" fill="#CE1126"/><rect x="30" y="13.3" width="30" height="13.4" fill="#fff"/><rect x="30" y="26.6" width="30" height="13.4" fill="#477050"/>'),
+        eic: flagUri(`${bands(['#E30A17', '#fff', '#E30A17', '#fff', '#E30A17', '#fff', '#E30A17', '#fff', '#E30A17', '#fff', '#E30A17', '#fff', '#E30A17'])}${canton(24, 16)}`),
+        raj: flagUri(`<rect width="60" height="40" fill="#C8102E"/>${canton(24, 16)}${star(42, 24, 5, '#fff')}`),
+        korea: flagUri(`<rect width="60" height="40" fill="#fff"/><circle cx="30" cy="20" r="6.5" fill="#C60C30"/><path d="M30 13.5 a6.5 6.5 0 0 1 0 13 a3.2 3.2 0 0 1 0-6.4 a3.2 3.2 0 0 0 0-6.6" fill="#003478"/><g stroke="#111" stroke-width="1.3"><path d="M8 10 h8 M8 13 h8 M10 16 h4"/><path d="M44 24 h8 M44 27 h8 M46 30 h4"/></g>`),
+        prussia: flagUri('<rect width="60" height="40" fill="#fff"/><rect width="60" height="12" fill="#000"/><rect y="28" width="60" height="12" fill="#000"/>'),
+        de_emp: flagUri(bands(['#000', '#fff', '#DE0000'])),
+        us15: flagUri(usStripes(15, 15)),
+        us45: flagUri(usStripes(13, 45)),
+        redensign: flagUri(`<rect width="60" height="40" fill="#C8102E"/>${canton(26, 18)}`),
+        sa_old: flagUri(`${bands(['#FFB81C', '#fff', '#002395'])}<svg x="22" y="13" width="16" height="14" viewBox="0 0 60 40">${unionJack()}</svg>`),
+        cfs: flagUri(`<rect width="60" height="40" fill="#0033A0"/>${star(30, 20, 8, '#FFD700')}`),
+        pt_royal: flagUri('<rect width="30" height="40" fill="#003399"/><rect x="30" width="30" height="40" fill="#fff"/><circle cx="30" cy="20" r="6" fill="#C8102E"/><circle cx="30" cy="20" r="3" fill="#FFD700"/>'),
+        savoy: flagUri('<rect width="60" height="40" fill="#003399"/><rect x="26" width="8" height="40" fill="#fff"/><rect y="16" width="60" height="8" fill="#fff"/>'),
+        iran: flagUri(`${bands(['#239F40', '#fff', '#DA0000'])}<circle cx="30" cy="20" r="4.2" fill="#DA0000"/><circle cx="30" cy="20" r="2.2" fill="#FFD700"/>`),
+        afghan: flagUri(bands(['#000', '#C8102E', '#007A36'], true)),
+        iraq: flagUri(`${bands(['#CE1126', '#fff', '#111'])}${star(22, 20, 2.6, '#007A3D')}${star(30, 20, 2.6, '#007A3D')}${star(38, 20, 2.6, '#007A3D')}`),
+        czech: flagUri('<rect width="60" height="20" fill="#fff"/><rect y="20" width="60" height="20" fill="#D7141A"/><polygon points="0,0 26,20 0,40" fill="#11457E"/>'),
+        yugo: flagUri(`${bands(['#0033A0', '#fff', '#DE0000'])}${star(30, 20, 5.2, '#F4D35E')}${star(30, 20, 3.6, '#DE0000')}`),
+        myanmar: flagUri(`<rect width="60" height="40" fill="#DE2910"/><rect width="28" height="22" fill="#00247D"/>${star(14, 11, 5.5, '#fff')}`),
+        konbaung: flagUri(bands(['#FCD116', '#007A3D'])),
+        field_red: flagUri('<rect width="60" height="40" fill="#C8102E"/>'),
+        field_green: flagUri('<rect width="60" height="40" fill="#239F40"/>'),
+        field_yellow: flagUri('<rect width="60" height="40" fill="#FFDE00"/>')
+    };
+
+    const ERA_NAME = {
+        ru_emp: {ru:'Российская империя', en:'Russian Empire', es:'Imperio ruso', fr:'Empire russe', de:'Russisches Reich', uk:'Російська імперія', zh:'俄罗斯帝国', ja:'ロシア帝国', ar:'الإمبراطورية الروسية'},
+        ussr: {ru:'СССР', en:'USSR', es:'URSS', fr:'URSS', de:'UdSSR', uk:'СРСР', zh:'苏联', ja:'ソビエト連邦', ar:'الاتحاد السوفيتي'},
+        qing: {ru:'Империя Цин', en:'Qing Empire', es:'Imperio Qing', fr:'Empire Qing', de:'Qing-Reich', uk:'Імперія Цін', zh:'清朝', ja:'清', ar:'إمبراطورية تشينغ'},
+        ottoman: {ru:'Османская империя', en:'Ottoman Empire', es:'Imperio otomano', fr:'Empire ottoman', de:'Osmanisches Reich', uk:'Османська імперія', zh:'奥斯曼帝国', ja:'オスマン帝国', ar:'الدولة العثمانية'},
+        habsburg: {ru:'Монархия Габсбургов', en:'Habsburg Monarchy', es:'Monarquía Habsburgo', fr:'Monarchie des Habsbourg', de:'Habsburgermonarchie', uk:'Монархія Габсбургів', zh:'哈布斯堡君主国', ja:'ハプスブルク君主国', ar:'ملكية هابسبورغ'},
+        ah: {ru:'Австро-Венгрия', en:'Austria-Hungary', es:'Austria-Hungría', fr:'Autriche-Hongrie', de:'Österreich-Ungarn', uk:'Австро-Угорщина', zh:'奥匈帝国', ja:'オーストリア＝ハンガリー', ar:'النمسا-المجر'},
+        brit_india: {ru:'Британская Индия', en:'British India', es:'India británica', fr:'Indes britanniques', de:'Britisch-Indien', uk:'Британська Індія', zh:'英属印度', ja:'イギリス領インド', ar:'الهند البريطانية'},
+        korea: {ru:'Корея', en:'Korea', es:'Corea', fr:'Corée', de:'Korea', uk:'Корея', zh:'朝鲜', ja:'朝鮮', ar:'كوريا'},
+        czech: {ru:'Чехословакия', en:'Czechoslovakia', es:'Checoslovaquia', fr:'Tchécoslovaquie', de:'Tschechoslowakei', uk:'Чехословаччина', zh:'捷克斯洛伐克', ja:'チェコスロバキア', ar:'تشيكوسلوفاكيا'},
+        yugo: {ru:'Югославия', en:'Yugoslavia', es:'Yugoslavia', fr:'Yougoslavie', de:'Jugoslawien', uk:'Югославія', zh:'南斯拉夫', ja:'ユーゴスラビア', ar:'يوغوسلافيا'},
+        german_states: {ru:'Германские государства', en:'German states', es:'Estados alemanes', fr:'États allemands', de:'Deutsche Staaten', uk:'Німецькі держави', zh:'德意志诸邦', ja:'ドイツ諸邦', ar:'الدول الألمانية'},
+        german_emp: {ru:'Германская империя', en:'German Empire', es:'Imperio alemán', fr:'Empire allemand', de:'Deutsches Kaiserreich', uk:'Німецька імперія', zh:'德意志帝国', ja:'ドイツ帝国', ar:'الإمبراطورية الألمانية'},
+        italian_states: {ru:'Итальянские государства', en:'Italian states', es:'Estados italianos', fr:'États italiens', de:'Italienische Staaten', uk:'Італійські держави', zh:'意大利诸邦', ja:'イタリア諸邦', ar:'الدول الإيطالية'},
+        italy_k: {ru:'Королевство Италия', en:'Kingdom of Italy', es:'Reino de Italia', fr:'Royaume d’Italie', de:'Königreich Italien', uk:'Королівство Італія', zh:'意大利王国', ja:'イタリア王国', ar:'مملكة إيطاليا'},
+        polish_lands: {ru:'Польские земли', en:'Polish lands', es:'Tierras polacas', fr:'Terres polonaises', de:'Polnische Gebiete', uk:'Польські землі', zh:'波兰土地', ja:'ポーランド地域', ar:'الأراضي البولندية'},
+        congress_pl: {ru:'Царство Польское', en:'Congress Poland', es:'Polonia del Congreso', fr:'Royaume de Pologne', de:'Kongresspolen', uk:'Царство Польське', zh:'波兰会议王国', ja:'ポーランド立憲王国', ar:'مملكة بولندا'},
+        new_spain: {ru:'Новая Испания', en:'New Spain', es:'Nueva España', fr:'Nouvelle-Espagne', de:'Neuspanien', uk:'Нова Іспанія', zh:'新西班牙', ja:'ヌエバ・エスパーニャ', ar:'إسبانيا الجديدة'},
+        rio: {ru:'Рио-де-ла-Плата', en:'Río de la Plata', es:'Río de la Plata', fr:'Río de la Plata', de:'Río de la Plata', uk:'Ріо-де-ла-Плата', zh:'拉普拉塔', ja:'リオ・デ・ラ・プラタ', ar:'ريو دي لا بلاتا'},
+        granada: {ru:'Новая Гранада', en:'New Granada', es:'Nueva Granada', fr:'Nouvelle-Grenade', de:'Neugranada', uk:'Нова Гранада', zh:'新格拉纳达', ja:'ヌエバ・グラナダ', ar:'غرناطة الجديدة'},
+        algiers: {ru:'Алжирское регентство', en:'Regency of Algiers', es:'Regencia de Argel', fr:'Régence d’Alger', de:'Regentschaft Algier', uk:'Алжирське регентство', zh:'阿尔及尔摄政', ja:'アルジェ摂政領', ar:'إيالة الجزائر'}
+    };
+
+    const RU_1800 = ['Россия','Украина','Беларусь','Литва','Латвия','Грузия'];
+    const RU_1900 = RU_1800.concat(['Армения','Азербайджан','Казахстан','Узбекистан','Кыргызстан','Таджикистан','Туркменистан','Молдова']);
+    const USSR = RU_1900.slice();
+    const QING_1800 = ['Китай','Монголия','Тайвань','Гонконг'];
+    const QING_1900 = ['Китай','Монголия','Тайвань'];
+    const OTTOMAN_1800 = ['Турция','Греция','Болгария','Сербия','Босния и Герцеговина','Албания','Северная Македония','Румыния','Сирия','Ирак','Ливан','Палестина','Иордания','Египет','Ливия','Тунис','Йемен'];
+    const OTTOMAN_1900 = ['Турция','Сирия','Ирак','Ливан','Палестина','Иордания','Ливия','Йемен','Албания','Северная Македония'];
+    const HABSBURG = ['Австрия','Венгрия','Чехия','Словакия','Словения','Хорватия'];
+    const AH = HABSBURG.concat(['Босния и Герцеговина']);
+    const INDIA = ['Индия','Пакистан','Бангладеш'];
+    const KOREA = ['Южная Корея','КНДР'];
+    const YUGO = ['Сербия','Хорватия','Словения','Босния и Герцеговина','Северная Македония'];
+
+    const GROUPS = [
+        {id:'ru_emp', eras:[1800], members:RU_1800, primary:'Россия', svg:'ru_emp', label:ERA_NAME.ru_emp},
+        {id:'ru_emp', eras:[1900], members:RU_1900, primary:'Россия', svg:'ru_emp', label:ERA_NAME.ru_emp},
+        {id:'ussr', eras:[1950], members:USSR, primary:'Россия', svg:'ussr', label:ERA_NAME.ussr},
+        {id:'qing', eras:[1800], members:QING_1800, primary:'Китай', svg:'qing', label:ERA_NAME.qing},
+        {id:'qing', eras:[1900], members:QING_1900, primary:'Китай', svg:'qing', label:ERA_NAME.qing},
+        {id:'ottoman', eras:[1800], members:OTTOMAN_1800, primary:'Турция', svg:'ottoman', label:ERA_NAME.ottoman},
+        {id:'ottoman', eras:[1900], members:OTTOMAN_1900, primary:'Турция', svg:'ottoman', label:ERA_NAME.ottoman},
+        {id:'habsburg', eras:[1800], members:HABSBURG, primary:'Австрия', svg:'habsburg', label:ERA_NAME.habsburg},
+        {id:'ah', eras:[1900], members:AH, primary:'Австрия', svg:'ah', label:ERA_NAME.ah},
+        {id:'india', eras:[1800], members:INDIA, primary:'Индия', label:ERA_NAME.brit_india, flagFor:{1800:{svg:'eic'}}},
+        {id:'india', eras:[1900], members:INDIA, primary:'Индия', label:ERA_NAME.brit_india, flagFor:{1900:{svg:'raj'}}},
+        {id:'korea', eras:[1800,1900], members:KOREA, primary:'Южная Корея', svg:'korea', label:ERA_NAME.korea},
+        {id:'czech', eras:[1950], members:['Чехия','Словакия'], primary:'Чехия', svg:'czech', label:ERA_NAME.czech},
+        {id:'yugo', eras:[1950], members:YUGO, primary:'Сербия', svg:'yugo', label:ERA_NAME.yugo},
+        {id:'pak', eras:[1950], members:['Пакистан','Бангладеш'], primary:'Пакистан', emoji:'🇵🇰'},
+        {id:'sudan', eras:[1800], members:['Судан','Южный Судан'], primary:'Судан', svg:'field_green'},
+        {id:'sudan', eras:[1900,1950], members:['Судан','Южный Судан'], primary:'Судан', emoji:'🇬🇧'},
+        {id:'sudan', eras:[2000], members:['Судан','Южный Судан'], primary:'Судан', emoji:'🇸🇩'},
+        {id:'eth', eras:[1800,1950], members:['Эфиопия','Эритрея'], primary:'Эфиопия', emoji:'🇪🇹'}
+    ];
+
+    const INDIV = {};
+    function mark(eras, names, spec) {
+        eras.forEach(era => {
+            INDIV[era] = INDIV[era] || {};
+            names.forEach(name => { INDIV[era][name] = spec; });
+        });
+    }
+    const UK = {emoji:'🇬🇧'}, FR = {emoji:'🇫🇷'}, ES = {emoji:'🇪🇸'}, NL = {emoji:'🇳🇱'}, PT = {emoji:'🇵🇹'}, BE = {emoji:'🇧🇪'}, IT = {emoji:'🇮🇹'}, DK = {emoji:'🇩🇰'};
+    mark([1800,1900], ['Австралия','Новая Зеландия','ЮАР','Шри-Ланка','Ирландия','Ямайка'], UK);
+    mark([1900,1950], ['Нигерия','Гана','Кения','Уганда','Замбия','Малави','Зимбабве','Ботсвана','Лесото','Гамбия','Сьерра-Леоне','Малайзия','Сингапур','Гонконг','ОАЭ','Катар','Кувейт'], UK);
+    mark([1900], ['Мьянма'], UK);
+    mark([1950], ['Танзания','Кипр','Судан'], UK);
+    mark([1800], ['Канада'], UK);
+    mark([1900,1950], ['Канада'], {svg:'redensign'});
+    mark([1950], ['ЮАР'], {svg:'sa_old'});
+    mark([1900], ['Алжир','Тунис','Сенегал','Мали','Нигер','Буркина-Фасо','Гвинея','Бенин',"Кот-д'Ивуар",'Мадагаскар','Чад','ЦАР','Конго','Габон','Мавритания','Вьетнам','Камбоджа','Лаос'], FR);
+    mark([1950], ['Алжир','Тунис','Марокко','Сенегал','Мали','Нигер','Буркина-Фасо','Гвинея','Бенин',"Кот-д'Ивуар",'Мадагаскар','Чад','ЦАР','Конго','Габон','Мавритания','Того','Камерун','Камбоджа','Лаос'], FR);
+    mark([1900], ['Танзания','Руанда','Бурунди','Намибия','Камерун','Того'], {svg:'de_emp'});
+    mark([1800,1900], ['Ангола','Мозамбик','Гвинея-Бисау','Португалия'], {svg:'pt_royal'});
+    mark([1800], ['Бразилия'], {svg:'pt_royal'});
+    mark([1950], ['Ангола','Мозамбик','Гвинея-Бисау'], PT);
+    mark([1800], ['Гватемала','Гондурас','Сальвадор','Никарагуа','Коста-Рика','Панама','Куба','Доминиканская Респ.','Венесуэла','Эквадор','Перу','Боливия','Чили','Парагвай','Уругвай','Филиппины'], ES);
+    mark([1800], ['Мексика'], Object.assign({emoji:'🇪🇸'}, {label:ERA_NAME.new_spain}));
+    mark([1800], ['Аргентина'], {emoji:'🇪🇸', label:ERA_NAME.rio});
+    mark([1800], ['Колумбия'], {emoji:'🇪🇸', label:ERA_NAME.granada});
+    mark([1900], ['Куба','Филиппины'], {svg:'us45'});
+    mark([1900], ['Панама'], {emoji:'🇨🇴'});
+    mark([1900], ['ДР Конго'], {svg:'cfs'});
+    mark([1950], ['ДР Конго','Руанда','Бурунди'], BE);
+    mark([1800,1900], ['Индонезия'], NL);
+    mark([1800], ['Бельгия','Гаити'], FR);
+    mark([1800], ['Норвегия'], DK);
+    mark([1900], ['Эритрея','Сомали'], IT);
+    mark([1800], ['Молдова'], {svg:'ottoman'});
+    mark([1800], ['Казахстан','Узбекистан','Кыргызстан','Таджикистан','Туркменистан'], {svg:'field_green'});
+    mark([1800], ['Армения','Азербайджан'], {svg:'iran'});
+    mark([1800,1900,1950], ['Иран'], {svg:'iran'});
+    mark([1800,1900,1950,2000], ['Афганистан'], {svg:'afghan'});
+    mark([1950,2000], ['Ирак'], {svg:'iraq'});
+    mark([2000], ['Ливия'], {svg:'field_green'});
+    mark([1950], ['Ливия'], UK);
+    mark([1800,1900,1950], ['Марокко','Оман'], {svg:'field_red'});
+    mark([1800,1900], ['Таиланд'], {svg:'field_red'});
+    mark([1800], ['Вьетнам'], {svg:'field_yellow'});
+    mark([1800], ['Камбоджа','Лаос'], {svg:'field_red'});
+    mark([1800], ['Мьянма'], {svg:'konbaung'});
+    mark([1800], ['Малайзия','Сингапур'], {svg:'field_yellow'});
+    mark([1950,2000], ['Мьянма'], {svg:'myanmar'});
+    mark([1800], ['США'], {svg:'us15'});
+    mark([1900], ['США'], {svg:'us45'});
+    mark([1800], ['Германия'], {svg:'prussia', label:ERA_NAME.german_states});
+    mark([1900], ['Германия'], {svg:'de_emp', label:ERA_NAME.german_emp});
+    mark([1800], ['Италия'], {svg:'savoy', label:ERA_NAME.italian_states});
+    mark([1900], ['Италия'], {label:ERA_NAME.italy_k});
+    mark([1800], ['Польша'], {label:ERA_NAME.polish_lands});
+    mark([1900], ['Польша'], {label:ERA_NAME.congress_pl});
+    mark([1800], ['Алжир'], {svg:'ottoman', label:ERA_NAME.algiers});
+
+    const CITY_POP = {
+        'Пекин':{1800:1100000,1900:700000}, 'Гуанчжоу':{1800:800000,1900:500000}, 'Ханчжоу':{1800:500000,1900:350000},
+        'Сучжоу':{1800:500000,1900:300000}, 'Нанкин':{1800:300000,1900:270000}, 'Шанхай':{1800:100000,1900:600000},
+        'Токио':{1800:1000000,1900:1500000}, 'Осака':{1800:400000,1900:1000000}, 'Киото':{1800:350000,1900:380000},
+        'Лондон':{1800:1000000,1900:6500000}, 'Манчестер':{1800:90000,1900:1200000}, 'Бирмингем':{1800:74000,1900:760000},
+        'Париж':{1800:550000,1900:2700000}, 'Марсель':{1800:110000,1900:490000}, 'Лион':{1800:100000,1900:460000},
+        'Стамбул':{1800:570000,1900:900000}, 'Москва':{1800:250000,1900:1100000}, 'Санкт-Петербург':{1800:220000,1900:1400000},
+        'Вена':{1800:250000,1900:1700000}, 'Берлин':{1800:170000,1900:1900000}, 'Гамбург':{1800:130000,1900:700000},
+        'Мюнхен':{1800:40000,1900:500000}, 'Каир':{1800:260000,1900:600000}, 'Александрия':{1800:15000,1900:320000},
+        'Нью-Йорк':{1800:60000,1900:3400000}, 'Филадельфия':{1800:41000,1900:1300000}, 'Бостон':{1800:25000,1900:560000},
+        'Чикаго':{1800:0,1900:1700000}, 'Лос-Анджелес':{1800:0,1900:100000}, 'Сан-Франциско':{1800:0,1900:340000},
+        'Вашингтон':{1800:3000,1900:280000}, 'Мехико':{1800:130000,1900:400000}, 'Калькутта':{1800:500000,1900:1100000},
+        'Мумбаи':{1800:150000,1900:800000}, 'Дели':{1800:150000,1900:210000}, 'Мадрид':{1800:180000,1900:540000},
+        'Барселона':{1800:110000,1900:530000}, 'Рим':{1800:150000,1900:460000}, 'Неаполь':{1800:430000,1900:560000},
+        'Милан':{1800:130000,1900:490000}, 'Амстердам':{1800:200000,1900:510000}, 'Лиссабон':{1800:180000,1900:360000},
+        'Сеул':{1800:190000,1900:200000}, 'Бангкок':{1800:100000,1900:400000}, 'Джакарта':{1800:30000,1900:150000},
+        'Рио-де-Жанейро':{1800:60000,1900:700000}, 'Буэнос-Айрес':{1800:40000,1900:800000}, 'Сан-Паулу':{1800:15000,1900:240000},
+        'Будапешт':{1800:54000,1900:730000}, 'Варшава':{1800:70000,1900:680000}, 'Прага':{1800:75000,1900:200000},
+        'Тегеран':{1800:60000,1900:200000}, 'Багдад':{1800:80000,1900:150000}, 'Дамаск':{1800:100000,1900:150000},
+        'Лахор':{1800:100000,1900:200000}, 'Дакка':{1800:200000,1900:130000}, 'Ханой':{1800:80000,1900:150000},
+        'Киев':{1800:20000,1900:250000}, 'Мельбурн':{1800:0,1900:490000}, 'Сидней':{1800:2500,1900:480000},
+        'Торонто':{1800:500,1900:200000}, 'Монреаль':{1800:9000,1900:270000}, 'Кейптаун':{1800:16000,1900:170000},
+        'Йоханнесбург':{1800:0,1900:100000}, 'Аддис-Абеба':{1800:0,1900:60000}, 'Лагос':{1800:5000,1900:42000},
+        'Алжир':{1800:50000,1900:140000}, 'Касабланка':{1800:20000,1900:30000}, 'Нур-Султан':{1800:0,1900:8000}
+    };
+    const CITY_MIN_YEAR = {'Бразилиа':1960, 'Абуджа':1991, 'Исламабад':1960, 'Шэньчжэнь':1980, 'Бекаси':1950};
+    const CITY_ALIAS = {1800:{'Токио':'Эдо','Стамбул':'Константинополь'}, 1900:{'Стамбул':'Константинополь'}};
+
+    function countryByName() {
+        const map = new Map();
+        rawWorkingCountries.forEach(item => map.set(item.name, item));
+        return map;
+    }
+    function populationAt(item, year) {
+        if (!item) return 0;
+        if (year >= 1950) return Math.round(getLinearInterpolatedValue(item.data, year));
+        const pair = HIST_POP[item.name];
+        if (!pair) {
+            const p50 = item.data[1950] || Math.round(getLinearInterpolatedValue(item.data, 1950)) || 1000000;
+            return Math.round(p50 * (year <= 1800 ? 0.45 : 0.72));
+        }
+        if (year <= 1800) return pair[0];
+        if (year >= 1900) return pair[1];
+        const t = (year - 1800) / 100;
+        return Math.round(pair[0] * Math.pow(pair[1] / Math.max(pair[0], 1), t));
+    }
+    function clipSeries(data, era) {
+        const out = {};
+        out[era] = Math.max(0, Math.round(getLinearInterpolatedValue(data, era)));
+        Object.keys(data).forEach(year => { if (+year > era) out[year] = data[year]; });
+        return out;
+    }
+    function seriesFor(item, era) {
+        if (era >= 1950) return clipSeries(item.data, era);
+        const pEra = populationAt(item, era);
+        const out = {};
+        out[era] = pEra;
+        if (era < 1900) {
+            const p1900 = populationAt(item, 1900);
+            out[1900] = p1900;
+            for (let year = era + 10; year < 1900; year += 10) {
+                const t = (year - era) / (1900 - era);
+                out[year] = Math.round(Math.max(pEra, 1) * Math.pow(Math.max(p1900, 1) / Math.max(pEra, 1), t));
+            }
+        }
+        const anchorYear = out[1900] ? 1900 : era;
+        const anchor = Math.max(out[anchorYear], 1);
+        const p50 = item.data[1950] || Math.round(getLinearInterpolatedValue(item.data, 1950)) || anchor;
+        for (let year = anchorYear + 10; year < 1950; year += 10) {
+            const t = (year - anchorYear) / (1950 - anchorYear);
+            out[year] = Math.round(anchor * Math.pow(Math.max(p50, 1) / anchor, t));
+        }
+        Object.keys(item.data).forEach(year => { if (+year >= 1950) out[year] = item.data[year]; });
+        return out;
+    }
+    function groupFor(name, era) {
+        return GROUPS.find(group => group.eras.includes(era) && group.members.includes(name)) || null;
+    }
+    function visualFor(name, era) {
+        if (era === 2026) return {svg:'', emoji:null, label:null};
+        const group = groupFor(name, era);
+        const indiv = (INDIV[era] && INDIV[era][name]) || null;
+        if (group) {
+            const flagged = (group.flagFor && group.flagFor[era]) || {};
+            return {svg: flagged.svg || group.svg || '', emoji: flagged.emoji || group.emoji || null, label: null};
+        }
+        if (indiv) return {svg: indiv.svg || '', emoji: indiv.emoji || null, label: indiv.label || null};
+        return {svg:'', emoji:null, label:null};
+    }
+    function applyVisual(item, visual) {
+        if (visual.svg) return {flag:'', flagSvg: FLAGS[visual.svg]};
+        if (visual.emoji) return {flag: visual.emoji, flagSvg:''};
+        return {flag: item.flag || '', flagSvg:''};
+    }
+    function buildGroup(group, members, era) {
+        const primary = members.find(item => item.name === group.primary) || members[0];
+        const series = members.map(item => seriesFor(item, era));
+        const years = new Set();
+        series.forEach(row => Object.keys(row).forEach(year => years.add(year)));
+        const data = {};
+        years.forEach(year => { data[year] = series.reduce((sum, row) => sum + (row[year] || 0), 0); });
+        const visual = visualFor(primary.name, era);
+        const painted = applyVisual(primary, visual);
+        const label = group.label ? eraText(group.label) : null;
+        return {
+            name: label ? group.id + '@' + era : primary.name,
+            eraName: label,
+            flag: painted.flag,
+            flagSvg: painted.flagSvg,
+            isoFlag: primary.flag,
+            color: primary.color,
+            area: members.reduce((sum, item) => sum + (+item.area || 0), 0) || primary.area,
+            data
+        };
+    }
+    function buildCountry(item, era) {
+        const visual = visualFor(item.name, era);
+        const painted = applyVisual(item, visual);
+        return {
+            name: item.name,
+            eraName: visual.label ? eraText(visual.label) : null,
+            flag: painted.flag,
+            flagSvg: painted.flagSvg,
+            isoFlag: item.flag,
+            color: item.color,
+            area: item.area,
+            data: era === 2026 ? item.data : seriesFor(item, era)
+        };
+    }
+    function projectCountries(items, era) {
+        if (era === 2026) return items.map(item => ({...item, flagSvg:'', eraName:null}));
+        const present = new Map(items.map(item => [item.name, item]));
+        const known = countryByName();
+        const consumed = new Set();
+        const out = [];
+        GROUPS.forEach(group => {
+            if (!group.eras.includes(era)) return;
+            const members = group.members.map(name => present.get(name)).filter(Boolean);
+            const available = group.members.filter(name => known.has(name)).length;
+            if (members.length >= 2 && members.length === available) {
+                members.forEach(item => consumed.add(item.name));
+                out.push(buildGroup(group, members, era));
+            }
+        });
+        items.forEach(item => { if (!consumed.has(item.name)) out.push(buildCountry(item, era)); });
+        return out;
+    }
+    function cityPopulation(name, country, era, pop2020) {
+        const known = CITY_POP[name];
+        if (known && known[era] != null) return known[era];
+        const record = countryByName().get(country);
+        const pEra = populationAt(record, era);
+        const p2020 = record && record.data ? (record.data[2020] || 0) : 0;
+        if (!pEra || !p2020 || !pop2020) return 0;
+        const ratio = Math.min(1.25, pEra / p2020);
+        // Без отдельной оценки город берётся как небольшая доля современной агломерации:
+        // мегаполисы XX века иначе обгоняют Лондон и Пекин. Крупные центры заданы в CITY_POP.
+        const ceiling = pop2020 * (era <= 1800 ? 0.018 : 0.045);
+        const scaled = pop2020 * Math.pow(Math.max(ratio, 0.01), era <= 1800 ? 1.7 : 1.45);
+        return Math.round(Math.min(ceiling, scaled));
+    }
+    function citySeries(item, country, era) {
+        const pop2020 = item.data[2020] || 0;
+        const at = year => cityPopulation(item.name, country, year, pop2020);
+        const pEra = at(era);
+        const out = {};
+        out[era] = pEra;
+        if (era < 1900) {
+            const p1900 = Math.max(at(1900), 1);
+            out[1900] = p1900;
+            for (let year = era + 10; year < 1900; year += 10) {
+                const t = (year - era) / (1900 - era);
+                out[year] = Math.round(Math.max(pEra, 1) * Math.pow(p1900 / Math.max(pEra, 1), t));
+            }
+        }
+        const anchorYear = out[1900] ? 1900 : era;
+        const anchor = Math.max(out[anchorYear], 1);
+        const p50 = item.data[1950] || Math.round(getLinearInterpolatedValue(item.data, 1950)) || anchor;
+        for (let year = anchorYear + 10; year < 1950; year += 10) {
+            const t = (year - anchorYear) / (1950 - anchorYear);
+            out[year] = Math.round(anchor * Math.pow(Math.max(p50, 1) / anchor, t));
+        }
+        Object.keys(item.data).forEach(year => { if (+year >= 1950) out[year] = item.data[year]; });
+        return out;
+    }
+    function projectCities(items, era) {
+        if (era === 2026) return items.map(item => ({...item, flagSvg:'', eraName:null}));
+        const out = [];
+        items.forEach(item => {
+            if (CITY_MIN_YEAR[item.name] && era < CITY_MIN_YEAR[item.name]) return;
+            const country = flagToCountryMap[item.flag] || '';
+            if (era < 1950) {
+                const pop = cityPopulation(item.name, country, era, item.data[2020] || 0);
+                if (pop < 20000) return;
+            }
+            const visual = visualFor(country, era);
+            const painted = applyVisual(item, visual);
+            const alias = CITY_ALIAS[era] && CITY_ALIAS[era][item.name];
+            out.push({
+                name: item.name,
+                eraName: alias || null,
+                flag: painted.flag,
+                flagSvg: painted.flagSvg,
+                isoFlag: item.flag,
+                color: item.color,
+                area: item.area,
+                data: era >= 1950 ? clipSeries(item.data, era) : citySeries(item, country, era)
+            });
+        });
+        return out;
+    }
+    function projectForEra(items, mode) {
+        const era = currentEra();
+        return mode === 'cities' ? projectCities(items, era) : projectCountries(items, era);
+    }
+    (function checkEraFlags() {
+        const keys = new Set();
+        GROUPS.forEach(group => {
+            if (group.svg) keys.add(group.svg);
+            if (group.flagFor) Object.values(group.flagFor).forEach(spec => { if (spec.svg) keys.add(spec.svg); });
+        });
+        Object.values(INDIV).forEach(map => Object.values(map).forEach(spec => { if (spec.svg) keys.add(spec.svg); }));
+        keys.forEach(key => { if (!FLAGS[key]) throw new Error('Missing era flag: ' + key); });
+    })();
+
     // Настройки проекта хранятся отдельно от табличных данных симуляции.
     const LANGUAGES = [
         ['ru','Русский'],['en','English'],['es','Español'],['fr','Français'],['de','Deutsch'],['it','Italiano'],['pt','Português'],['nl','Nederlands'],['pl','Polski'],['uk','Українська'],['tr','Türkçe'],['ar','العربية'],['zh','简体中文'],['ja','日本語'],['ko','한국어'],['hi','हिन्दी'],['bn','বাংলা'],['id','Bahasa Indonesia'],['ms','Bahasa Melayu'],['vi','Tiếng Việt'],['th','ไทย'],['sv','Svenska'],['no','Norsk'],['da','Dansk'],['fi','Suomi'],['el','Ελληνικά'],['he','עברית'],['fa','فارسی'],['ur','اردو'],['ro','Română'],['hu','Magyar'],['cs','Čeština'],['sk','Slovenčina'],['bg','Български'],['sr','Српски']
     ];
     const UI = {
-        ru:{studio:'СТУДИЯ СИМУЛЯЦИЙ',language:'Язык',install:'Установить приложение',installHelp:'Установка: используйте кнопку вверху в поддерживаемом браузере. iPhone/iPad: Safari → «Поделиться» → «На экран Домой».',simulation:'Что симулируем',subject:'Предмет',customMetric:'Название своей метрики',settings:'Настройки',description:'Настройте объект исследования, метрику гонки и масштаб данных.'},
-        en:{studio:'SIMULATION STUDIO',language:'Language',install:'Install app',installHelp:'Install with the button above in a supported browser. iPhone/iPad: Safari → Share → Add to Home Screen.',simulation:'Simulation subject',subject:'Subject',customMetric:'Custom metric name',settings:'Settings',description:'Choose a subject, race metric and data scale.'},
-        es:{studio:'ESTUDIO DE SIMULACIÓN',language:'Idioma',install:'Instalar aplicación',installHelp:'Instala con el botón superior en un navegador compatible. iPhone/iPad: Safari → Compartir → Añadir a pantalla de inicio.',simulation:'Tema de simulación',customMetric:'Nombre de métrica',settings:'Ajustes',description:'Elige el tema, la métrica y la escala de datos.'},
-        fr:{studio:'STUDIO DE SIMULATION',language:'Langue',install:'Installer l’application',installHelp:'Installez avec le bouton ci-dessus. iPhone/iPad : Safari → Partager → Sur l’écran d’accueil.',simulation:'Sujet de simulation',customMetric:'Nom de la mesure',settings:'Paramètres',description:'Choisissez un sujet, une mesure et une échelle.'},
-        de:{studio:'SIMULATIONSSTUDIO',language:'Sprache',install:'App installieren',installHelp:'Über die Schaltfläche oben installieren. iPhone/iPad: Safari → Teilen → Zum Home-Bildschirm.',simulation:'Simulationsthema',customMetric:'Eigener Metrikname',settings:'Einstellungen',description:'Thema, Kennzahl und Datenskala auswählen.'},
-        zh:{studio:'模拟工作室',language:'语言',install:'安装应用',installHelp:'请在支持的浏览器中点击上方按钮安装。iPhone/iPad：Safari → 分享 → 添加到主屏幕。',simulation:'模拟主题',customMetric:'自定义指标名称',settings:'设置',description:'选择模拟主题、竞赛指标和数据范围。'},
-        ja:{studio:'シミュレーションスタジオ',language:'言語',install:'アプリをインストール',installHelp:'対応ブラウザーで上のボタンからインストール。iPhone/iPad：Safari → 共有 → ホーム画面に追加。',simulation:'シミュレーション対象',customMetric:'指標名',settings:'設定',description:'対象、指標、データ範囲を選択します。'},
-        uk:{studio:'СТУДІЯ СИМУЛЯЦІЙ',language:'Мова',install:'Встановити застосунок',installHelp:'Встановіть кнопкою вище у підтримуваному браузері. iPhone/iPad: Safari → Поділитися → На початковий екран.',simulation:'Що симулюємо',customMetric:'Назва власної метрики',settings:'Налаштування',description:'Оберіть тему, метрику змагання та масштаб даних.'},
-        ar:{studio:'استوديو المحاكاة',language:'اللغة',install:'تثبيت التطبيق',installHelp:'ثبّت عبر الزر أعلاه. على iPhone/iPad: Safari ← مشاركة ← إضافة إلى الشاشة الرئيسية.',simulation:'موضوع المحاكاة',customMetric:'اسم المقياس المخصص',settings:'الإعدادات',description:'اختر الموضوع والمقياس ونطاق البيانات.'}
+        ru:{studio:'СТУДИЯ СИМУЛЯЦИЙ',language:'Язык',install:'Установить приложение',installHelp:'Установка: используйте кнопку вверху в поддерживаемом браузере. iPhone/iPad: Safari → «Поделиться» → «На экран Домой».',simulation:'Что симулируем',subject:'Предмет',customMetric:'Название своей метрики',settings:'Настройки',era:'Эпоха',eraHint:'Старт гонки, население и флаги выбранного года.',description:'Настройте объект исследования, метрику гонки и масштаб данных.'},
+        en:{studio:'SIMULATION STUDIO',language:'Language',install:'Install app',installHelp:'Install with the button above in a supported browser. iPhone/iPad: Safari → Share → Add to Home Screen.',simulation:'Simulation subject',subject:'Subject',customMetric:'Custom metric name',settings:'Settings',era:'Era',eraHint:'Race start, population and flags for that year.',description:'Choose a subject, race metric and data scale.'},
+        es:{studio:'ESTUDIO DE SIMULACIÓN',language:'Idioma',install:'Instalar aplicación',installHelp:'Instala con el botón superior en un navegador compatible. iPhone/iPad: Safari → Compartir → Añadir a pantalla de inicio.',simulation:'Tema de simulación',customMetric:'Nombre de métrica',settings:'Ajustes',era:'Época',eraHint:'Inicio, población y banderas de ese año.',description:'Elige el tema, la métrica y la escala de datos.'},
+        fr:{studio:'STUDIO DE SIMULATION',language:'Langue',install:'Installer l’application',installHelp:'Installez avec le bouton ci-dessus. iPhone/iPad : Safari → Partager → Sur l’écran d’accueil.',simulation:'Sujet de simulation',customMetric:'Nom de la mesure',settings:'Paramètres',era:'Époque',eraHint:'Départ, population et drapeaux de cette année.',description:'Choisissez un sujet, une mesure et une échelle.'},
+        de:{studio:'SIMULATIONSSTUDIO',language:'Sprache',install:'App installieren',installHelp:'Über die Schaltfläche oben installieren. iPhone/iPad: Safari → Teilen → Zum Home-Bildschirm.',simulation:'Simulationsthema',customMetric:'Eigener Metrikname',settings:'Einstellungen',era:'Epoche',eraHint:'Start, Bevölkerung und Flaggen dieses Jahres.',description:'Thema, Kennzahl und Datenskala auswählen.'},
+        zh:{studio:'模拟工作室',language:'语言',install:'安装应用',installHelp:'请在支持的浏览器中点击上方按钮安装。iPhone/iPad：Safari → 分享 → 添加到主屏幕。',simulation:'模拟主题',customMetric:'自定义指标名称',settings:'设置',era:'年代',eraHint:'竞赛起点，以及该年的人口与旗帜。',description:'选择模拟主题、竞赛指标和数据范围。'},
+        ja:{studio:'シミュレーションスタジオ',language:'言語',install:'アプリをインストール',installHelp:'対応ブラウザーで上のボタンからインストール。iPhone/iPad：Safari → 共有 → ホーム画面に追加。',simulation:'シミュレーション対象',customMetric:'指標名',settings:'設定',era:'時代',eraHint:'開始年と、その年の人口・国旗。',description:'対象、指標、データ範囲を選択します。'},
+        uk:{studio:'СТУДІЯ СИМУЛЯЦІЙ',language:'Мова',install:'Встановити застосунок',installHelp:'Встановіть кнопкою вище у підтримуваному браузері. iPhone/iPad: Safari → Поділитися → На початковий екран.',simulation:'Що симулюємо',customMetric:'Назва власної метрики',settings:'Налаштування',era:'Епоха',eraHint:'Старт гонки, населення і прапори цього року.',description:'Оберіть тему, метрику змагання та масштаб даних.'},
+        ar:{studio:'استوديو المحاكاة',language:'اللغة',install:'تثبيت التطبيق',installHelp:'ثبّت عبر الزر أعلاه. على iPhone/iPad: Safari ← مشاركة ← إضافة إلى الشاشة الرئيسية.',simulation:'موضوع المحاكاة',customMetric:'اسم المقياس المخصص',settings:'الإعدادات',era:'الحقبة',eraHint:'بداية السباق والسكان والأعلام لتلك السنة.',description:'اختر الموضوع والمقياس ونطاق البيانات.'}
     };
     const PARTICIPANT_UI={
         ru:{participantTitle:'Состав гонки',participantHelp:'Фильтры работают вместе. Население — ориентир за 2020 год.',participantCountry:'Страна',participantContinent:'Континент',participantRegion:'Регион',participantOrganization:'Организация',participantAllCountries:'Все страны',participantAllContinents:'Все континенты',participantAllRegions:'Все регионы',participantAnyOrganization:'Любая организация',participantPopulationFrom:'Население от',participantPopulationTo:'Население до',participantUnder1:'Города < 1 млн',participantOver5:'Города > 5 млн',participantReset:'Сбросить фильтры',participantEnableAll:'Включить всех',participantDisableAll:'Отключить всех',participantOnlyMatches:'Оставить совпадения',participantIncludeMatches:'Включить совпадения',participantExcludeMatches:'Исключить совпадения',participantNoMinimum:'Без минимума',participantNoMaximum:'Без максимума',participantMatches:'Совпадения',participantInRace:'В гонке'},
@@ -895,8 +1349,10 @@
     Object.assign(PARTICIPANT_UI.ru,{continentAsia:'Азия',continentEurope:'Европа',continentAfrica:'Африка',continentNorthAmerica:'Северная Америка',continentSouthAmerica:'Южная Америка',continentOceania:'Океания'});
     const SUBJECTS = {demography:{ru:'Демографическая гонка',en:'Population race',es:'Carrera demográfica',fr:'Course démographique',de:'Bevölkerungsrennen',zh:'人口竞赛',ja:'人口レース',uk:'Демографічні перегони',ar:'سباق السكان'},gdp:{ru:'Гонка экономик: ВВП',en:'GDP race',es:'Carrera del PIB',fr:'Course au PIB',de:'BIP-Wettlauf',zh:'GDP竞赛',ja:'GDPレース',uk:'Перегони ВВП',ar:'سباق الناتج المحلي'},production:{ru:'Гонка производства',en:'Production race',es:'Carrera de producción',fr:'Course à la production',de:'Produktionsrennen',zh:'生产竞赛',ja:'生産レース',uk:'Перегони виробництва',ar:'سباق الإنتاج'},migration:{ru:'Гонка миграционного баланса',en:'Migration balance race',es:'Carrera del saldo migratorio',fr:'Course au solde migratoire',de:'Migrationssaldo-Rennen',zh:'移民净额竞赛',ja:'純移民レース',uk:'Перегони міграційного балансу',ar:'سباق صافي الهجرة'},crime:{ru:'Гонка уровня преступности',en:'Crime rate race',es:'Carrera de criminalidad',fr:'Course à la criminalité',de:'Kriminalitätsrennen',zh:'犯罪率竞赛',ja:'犯罪率レース',uk:'Перегони рівня злочинності',ar:'سباق معدل الجريمة'},custom:{ru:'Пользовательская симуляция',en:'Custom simulation',es:'Simulación personalizada',fr:'Simulation personnalisée',de:'Benutzerdefinierte Simulation',zh:'自定义模拟',ja:'カスタムシミュレーション',uk:'Власна симуляція',ar:'محاكاة مخصصة'}};
     const projectSettingsKey = 'atlas-simulation-settings-v1';
-    let projectSettings = (()=>{try{return {...{name:'',subject:'demography',metric:'population',customMetric:'',language:(navigator.language||'ru').slice(0,2)},...JSON.parse(localStorage.getItem(projectSettingsKey)||'{}')}}catch{return {name:'',subject:'demography',metric:'population',customMetric:'',language:'ru'}}})();
+    let projectSettings = (()=>{try{return {...{name:'',subject:'demography',metric:'population',customMetric:'',language:(navigator.language||'ru').slice(0,2),era:2026},...JSON.parse(localStorage.getItem(projectSettingsKey)||'{}')}}catch{return {name:'',subject:'demography',metric:'population',customMetric:'',language:'ru',era:2026}}})();
     if(!LANGUAGES.some(([code])=>code===projectSettings.language)) projectSettings.language='en';
+    projectSettings.era = Number(projectSettings.era);
+    if(!ERA_YEARS.includes(projectSettings.era)) projectSettings.era = 2026;
     const setProjectName = name => { const value=name.trim().slice(0,48); document.getElementById('project-name').value=value||SUBJECTS[projectSettings.subject][projectSettings.language]||SUBJECTS[projectSettings.subject].en; };
     const persistProjectSettings = () => localStorage.setItem(projectSettingsKey,JSON.stringify(projectSettings));
     function applyInterfaceLanguage(){
@@ -919,7 +1375,7 @@
     let globalMaxDensity = 0;
     let globalMaxGrowth = 0;
 
-    const margin = { top: 10, right: 180, bottom: 20, left: 180 };
+    const margin = { top: 10, right: 180, bottom: 20, left: 208 };
     const BAR_HEIGHT = 45;
     let width = 0;
     let svg, chartGroup, axisSvg;
@@ -1030,8 +1486,9 @@
             });
         });
         const yearsArray = Array.from(allYears).sort((a,b) => a - b);
-        state.minYear = yearsArray[0] || 1900;
-        state.maxYear = yearsArray[yearsArray.length - 1] || 2100;
+        const eraFloor = typeof currentEra === 'function' ? currentEra() : (yearsArray[0] || 1900);
+        state.minYear = eraFloor;
+        state.maxYear = yearsArray.length ? Math.max(eraFloor, yearsArray[yearsArray.length - 1]) : 2100;
         
         if (!keepYear) {
             state.currentYear = state.minYear;
@@ -1049,6 +1506,8 @@
         
         const maxLabel = document.getElementById("max-year-label");
         if (maxLabel) maxLabel.innerText = state.maxYear;
+        const minLabel = document.getElementById("min-year-label");
+        if (minLabel) minLabel.textContent = String(state.minYear);
 
         // Предрасчет касательных (производных) для сплайна с защитой от перекручиваний (Fritsch-Carlson)
         currentData = rawData.map(c => {
@@ -1075,8 +1534,9 @@
 
             return {
                 name: c.name,
-                displayName: getDisplayItemName(c,state.mode),
+                displayName: c.eraName || getDisplayItemName(c,state.mode),
                 flag: c.flag || "",
+                flagSvg: c.flagSvg || "",
                 color: c.color || "#888",
                 area: c.area || 1, 
                 data: c.data,
@@ -1110,6 +1570,13 @@
             .attr("height", yScale.bandwidth())
             .attr("fill", d => d.color)
             .attr("rx", 4); 
+
+        bars.append("image")
+            .attr("class", "bar-flag")
+            .attr("display", "none")
+            .attr("width", 22)
+            .attr("height", 15)
+            .style("pointer-events", "none");
 
         bars.append("text")
             .attr("class", "bar-label")
@@ -1294,7 +1761,24 @@
         bars.each(function(d) {
             const group = d3.select(this);
             
-            group.select(".bar-label").text(`${d.targetRank + 1}. ${d.flag} ${d.displayName}`);
+            const labelText = d.flagSvg ? `${d.targetRank + 1}. ${d.displayName}` : `${d.targetRank + 1}. ${d.flag} ${d.displayName}`;
+            const label = group.select(".bar-label").text(labelText);
+            const flagImg = group.select(".bar-flag");
+            if (d.flagSvg) {
+                const len = label.node() ? label.node().getComputedTextLength() : 0;
+                const node = flagImg.node();
+                if (node) {
+                    node.setAttribute("href", d.flagSvg);
+                    node.setAttributeNS("http://www.w3.org/1999/xlink", "href", d.flagSvg);
+                }
+                flagImg.attr("display", null)
+                    .attr("x", -16 - len - 24)
+                    .attr("y", yScale.bandwidth() / 2 - 7)
+                    .attr("width", 22)
+                    .attr("height", 15);
+            } else {
+                flagImg.attr("display", "none");
+            }
 
             let targetOpacity = 1;
             if (d.targetRank >= state.topN) targetOpacity = 0; 
@@ -1647,7 +2131,7 @@
 
         document.getElementById('install-app').addEventListener('click',async()=>{if(window.__installPrompt){window.__installPrompt.prompt();await window.__installPrompt.userChoice;window.__installPrompt=null;document.getElementById('install-app').style.display='none'}else alert('Для iPhone/iPad откройте меню «Поделиться» в Safari и выберите «На экран Домой». Для ПК и Android используйте меню браузера → «Установить приложение» или «Добавить на главный экран».')});
 
-        function applyFilter() {
+        function applyFilter(resetYear) {
             let sourceData = state.mode === 'countries' ? rawWorkingCountries : rawWorkingCities;
             if (state.filterCategory !== "all") {
                 sourceData = sourceData.filter(item => {
@@ -1658,7 +2142,7 @@
             const selection=participantSelection[state.mode];
             if(selection.mode==='none') sourceData=[];
             else if(selection.mode==='custom') { const names=new Set(selection.names); sourceData=sourceData.filter(item=>names.has(item.name)); }
-            loadData(sourceData, true); 
+            loadData(projectForEra(sourceData, state.mode), !resetYear);
         }
 
         const participantPanel=document.getElementById('participants-panel');
@@ -1910,9 +2394,26 @@
             }
         });
 
+        const eraQuick = document.getElementById('era-quick');
+        const eraSelect = document.getElementById('era-select');
+        eraQuick.value = String(projectSettings.era);
+        eraSelect.value = String(projectSettings.era);
+        function setEra(value) {
+            const era = Number(value);
+            if (!ERA_YEARS.includes(era)) return;
+            projectSettings.era = era;
+            eraQuick.value = String(era);
+            eraSelect.value = String(era);
+            persistProjectSettings();
+            pauseAnimation();
+            applyFilter(true);
+        }
+        eraQuick.addEventListener('change', () => setEra(eraQuick.value));
+        eraSelect.addEventListener('change', () => setEra(eraSelect.value));
+
         initD3();
         refreshParticipantOptions();
-        applyFilter();
+        applyFilter(true);
     });
 
     window.addEventListener('resize', () => {

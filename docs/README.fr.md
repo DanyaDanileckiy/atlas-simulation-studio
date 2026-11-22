@@ -31,6 +31,7 @@ Atlas Simulation Studio est une application web progressive au design profession
 ## ✨ Fonctionnalités
 
 - Catalogue de départ de 150 pays et 244 villes
+- Époque de départ : 1800, 1900, 1950, 2000 ou 2026, avec la population et les drapeaux historiques de cette année
 - Frise chronologique et graphiques, plus un éditeur de données pour les pays et les villes
 - Panneau **Participants** : filtres par pays, continent, sous-région, organisation internationale et population
 - Actions de filtre : tout activer, tout désactiver, ne garder que les correspondances, ajouter les correspondances ou les exclure
@@ -101,7 +102,7 @@ L’application propose un choix de **35 langues** : russe, anglais, espagnol, f
 
 ## ⚠️ Précision de la simulation
 
-La population des villes nouvellement ajoutées correspond à des estimations indicatives arrondies pour 2020 ; les limites de la ville et de l’agglomération peuvent différer selon les jeux de données sources. Les séries historiques et les prévisions des villes récemment ajoutées sont produites par un modèle simplifié à des fins de visualisation ; il ne s’agit pas d’une série statistique officielle.
+La population des villes nouvellement ajoutées correspond à des estimations indicatives arrondies pour 2020 ; les limites de la ville et de l’agglomération peuvent différer selon les jeux de données sources. Les époques historiques utilisent les frontières actuelles. Les chiffres de 1800 et 1900 sont arrondis d’après Our World in Data (HYDE 3.3 ; Gapminder v7, fondé sur le Maddison Project et Clio Infra). À partir de 1950, y compris le départ en 2026, la série du catalogue est conservée (ONU, World Population Prospects). Les grandes villes suivent Chandler, Bairoch et les UN World Urbanization Prospects. Les séries historiques et les prévisions des villes récemment ajoutées sont produites par un modèle simplifié à des fins de visualisation ; il ne s’agit pas d’une série statistique officielle.
 
 Les modes PIB, production, migration et criminalité permettent de choisir un objet et un nom de projet, mais ils ne remplacent pas les données démographiques par des statistiques de ces domaines : les séries sources saisies dans l’éditeur restent démographiques. Pour que ces modes produisent un résultat pertinent, l’éditeur devrait être étendu à des ensembles distincts de métriques personnalisées, et des données devraient être chargées pour ceux-ci. Les valeurs des métriques en compétition indiquées comme **indice démo** ne doivent donc pas être interprétées comme de véritables indicateurs.
 
