@@ -22,6 +22,7 @@ Service worker кэширует оболочку для последующих �
 
 ## Файлы установщиков
 
-Собраны [Windows EXE-установщик](installer-output/AtlasSimulationStudioSetup.exe) и [подписанный Android APK](installer-output/Atlas-Simulation-Studio.apk). Инструкции и ключ подписи находятся в `installer-output/README.md` и `installer-output/keys/`. EXE устанавливает приложение в профиль Windows и открывает сайт в браузере; SmartScreen может показать предупреждение о неизвестном издателе, так как EXE не подписан сертификатом издателя.
+Собраны [Windows EXE-установщик](installer-output/AtlasSimulationStudioSetup.exe) и [подписанный Android APK](installer-output/Atlas-Simulation-Studio.apk). Инструкции по установке находятся в `installer-output/README.md`. Ключ подписи APK и пароль хранятся только локально и намеренно не включены в GitHub-репозиторий. EXE устанавливает приложение в профиль Windows и открывает сайт в браузере; SmartScreen может показать предупреждение о неизвестном издателе, так как EXE не подписан сертификатом издателя.
 
 iPhone/iPad: используйте Safari → «Поделиться» → «На экран Домой». Файл iOS IPA не собирался; для его распространения нужны Apple-подпись и iOS build toolchain.
+
