@@ -746,7 +746,38 @@
        СИСТЕМА ФИЛЬТРАЦИИ И КАТЕГОРИЗАЦИИ 
        ========================================= */
     const flagToCountryMap = {};
-    defaultCountriesData.forEach(c => flagToCountryMap[c.flag] = c.name);
+    const countryToFlagMap = {};
+    defaultCountriesData.forEach(c => { flagToCountryMap[c.flag] = c.name; countryToFlagMap[c.name] = c.flag; });
+
+    const CONTINENT_M49 = {'Азия':'142','Европа':'150','Африка':'002','Северная Америка':'021','Южная Америка':'005','Океания':'009'};
+    const SUBREGION_M49 = {'Восточная Азия':'030','Южная Азия':'034','Юго-Восточная Азия':'035','Центральная Азия':'143','Западная Азия':'145','Северная Европа':'154','Западная Европа':'155','Южная Европа':'039','Восточная Европа':'151','Северная Америка':'021','Южная Америка':'005','Северная Африка':'015','Западная Африка':'011','Восточная Африка':'014','Центральная Африка':'017','Южная Африка':'018','Австралия и Новая Зеландия':'053','Меланезия':'054','Микронезия и Полинезия':'061'};
+    function countryCodeFromFlag(flag) {
+        const regional=[...String(flag||'')].map(char=>char.codePointAt(0)).filter(code=>code>=0x1F1E6&&code<=0x1F1FF);
+        return regional.length===2?regional.map(code=>String.fromCharCode(code-0x1F1E6+65)).join(''):null;
+    }
+    function localizedRegionName(label, type='region') {
+        const code=(type==='continent'?CONTINENT_M49:SUBREGION_M49)[label];
+        if(!code||projectSettings.language==='ru'||typeof Intl.DisplayNames!=='function') return label;
+        try { return new Intl.DisplayNames([projectSettings.language],{type:'region'}).of(code)||label; } catch { return label; }
+    }
+    function localizedCountryName(name, flag) {
+        if(projectSettings.language==='ru'||typeof Intl.DisplayNames!=='function') return name;
+        const code=countryCodeFromFlag(flag);
+        if(!code) return name;
+        try { const result=new Intl.DisplayNames([projectSettings.language],{type:'region'}).of(code); return result&&result!==code?result:name; } catch { return name; }
+    }
+    function getDisplayItemName(item, mode) {
+        return mode==='countries'?localizedCountryName(item.name,item.flag):item.name;
+    }
+    function refreshEditorCountryNames() {
+        document.querySelectorAll('#table-body .row-name').forEach(input=>{
+            if(input.value!==input.dataset.localizedName) return;
+            const country=(currentEditorMode==='countries');
+            const flag=input.closest('tr')?.querySelector('.row-flag')?.value||'';
+            input.value=country?localizedCountryName(input.dataset.originalName,flag):input.dataset.originalName;
+            input.dataset.localizedName=input.value;
+        });
+    }
 
     function getTagsForItem(name, mode, flag) {
         let targetCountry = name;
@@ -876,6 +907,7 @@
         document.querySelectorAll('[data-i18n]').forEach(el=>{const key=el.dataset.i18n;if(participantDict[key]||PARTICIPANT_UI.en[key])el.textContent=participantDict[key]||PARTICIPANT_UI.en[key]});
         document.getElementById('participant-min').placeholder=participantDict.participantNoMinimum||PARTICIPANT_UI.en.participantNoMinimum;
         document.getElementById('participant-max').placeholder=participantDict.participantNoMaximum||PARTICIPANT_UI.en.participantNoMaximum;
+        document.querySelectorAll('#group-filter option, #participant-continent option').forEach(option=>{const label=option.value;if(CONTINENT_M49[label])option.textContent=localizedRegionName(label,'continent')});
         document.title=`${document.getElementById('project-name').value} — Atlas Studio`;
         const language=document.getElementById('language-select'); if(language) language.value=lang;
         const settingLabel=document.querySelector('#btn-settings');if(settingLabel)settingLabel.lastChild.textContent=' '+dict.settings;
@@ -1043,6 +1075,7 @@
 
             return {
                 name: c.name,
+                displayName: getDisplayItemName(c,state.mode),
                 flag: c.flag || "",
                 color: c.color || "#888",
                 area: c.area || 1, 
@@ -1082,7 +1115,7 @@
             .attr("class", "bar-label")
             .attr("x", -10)
             .attr("y", yScale.bandwidth() / 2)
-            .text(d => `${d.flag} ${d.name}`);
+            .text(d => `${d.flag} ${d.displayName}`);
 
         bars.append("text")
             .attr("class", "bar-value")
@@ -1261,7 +1294,7 @@
         bars.each(function(d) {
             const group = d3.select(this);
             
-            group.select(".bar-label").text(`${d.targetRank + 1}. ${d.flag} ${d.name}`);
+            group.select(".bar-label").text(`${d.targetRank + 1}. ${d.flag} ${d.displayName}`);
 
             let targetOpacity = 1;
             if (d.targetRank >= state.topN) targetOpacity = 0; 
@@ -1365,7 +1398,7 @@
             
             let html = `
                 <td class="px-4 py-2 sticky left-0 bg-slate-800 z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.5)]">
-                    <input type="text" class="w-full bg-slate-900 border border-slate-600 rounded px-2 py-1 text-white focus:outline-none focus:border-blue-500 row-name" value="${item.name}">
+                    <input type="text" class="w-full bg-slate-900 border border-slate-600 rounded px-2 py-1 text-white focus:outline-none focus:border-blue-500 row-name" data-original-name="${item.name}" data-localized-name="${isCountries?localizedCountryName(item.name,item.flag):item.name}" value="${isCountries?localizedCountryName(item.name,item.flag):item.name}">
                 </td>
                 <td class="px-2 py-2 text-center">
                     <input type="text" class="w-12 bg-slate-900 border border-slate-600 rounded px-1 py-1 text-center text-white focus:outline-none focus:border-blue-500 row-flag" value="${item.flag}">
@@ -1420,11 +1453,14 @@
             trs.forEach(tr => {
                 let nameInput = tr.querySelector(".row-name");
                 if(!nameInput) return; // заголовок или пустая
+                const originalName=nameInput.dataset.originalName||'';
+                const localizedName=nameInput.dataset.localizedName||originalName;
                 let name = nameInput.value.trim();
+                const unchangedLocalizedName=name===localizedName;
                 let flag = tr.querySelector(".row-flag").value;
                 let color = tr.querySelector(".row-color").value;
 
-                let item = sourceData.find(d => d.name === name && d.flag === flag);
+                let item = sourceData.find(d => d.name === originalName && d.flag === flag);
                 
                 if (!item) {
                     item = { _id: Math.random().toString(36).substr(2, 9), data: {} };
@@ -1432,7 +1468,7 @@
                 }
 
                 item.flag = flag;
-                item.name = name;
+                item.name = unchangedLocalizedName?originalName:name;
                 item.color = color;
                 
                 if (currentEditorMode === 'countries') {
@@ -1473,7 +1509,7 @@
         if(!projectSettings.name)setProjectName(SUBJECTS[projectSettings.subject][projectSettings.language]||SUBJECTS[projectSettings.subject].en);
         else setProjectName(projectSettings.name);
         applyInterfaceLanguage();
-        languageSelect.addEventListener('change',()=>{projectSettings.language=languageSelect.value;setProjectName(projectSettings.name||SUBJECTS[projectSettings.subject][projectSettings.language]||SUBJECTS[projectSettings.subject].en);applyInterfaceLanguage();if(typeof refreshParticipantOptions==='function')refreshParticipantOptions();persistProjectSettings()});
+        languageSelect.addEventListener('change',()=>{projectSettings.language=languageSelect.value;setProjectName(projectSettings.name||SUBJECTS[projectSettings.subject][projectSettings.language]||SUBJECTS[projectSettings.subject].en);applyInterfaceLanguage();if(typeof refreshParticipantOptions==='function')refreshParticipantOptions();if(typeof applyFilter==='function')applyFilter();refreshEditorCountryNames();persistProjectSettings()});
         document.getElementById('project-name').addEventListener('input',e=>{projectSettings.name=e.target.value;applyInterfaceLanguage();persistProjectSettings()});
         const subjectSelect=document.getElementById('simulation-select');
         const subjectQuick=document.getElementById('subject-quick');
@@ -1627,13 +1663,13 @@
 
         const participantPanel=document.getElementById('participants-panel');
         const participantFilters={country:document.getElementById('participant-country'),continent:document.getElementById('participant-continent'),region:document.getElementById('participant-region'),org:document.getElementById('participant-org'),min:document.getElementById('participant-min'),max:document.getElementById('participant-max')};
-        const participantOptions=(select,placeholder,values)=>{const selected=select.value;select.innerHTML=`<option value="all">${placeholder}</option>`+values.map(value=>`<option value="${value.replaceAll('&','&amp;').replaceAll('"','&quot;')}">${value}</option>`).join('');if(values.includes(selected))select.value=selected;};
+        const participantOptions=(select,placeholder,values)=>{const selected=select.value;const safe=value=>String(value).replaceAll('&','&amp;').replaceAll('"','&quot;').replaceAll('<','&lt;').replaceAll('>','&gt;');select.innerHTML=`<option value="all">${safe(placeholder)}</option>`+values.map(value=>{const option=typeof value==='string'?{value,label:value}:value;return `<option value="${safe(option.value)}">${safe(option.label)}</option>`}).join('');if(values.some(value=>(typeof value==='string'?value:value.value)===selected))select.value=selected;};
         function currentParticipantSource(){return state.mode==='countries'?rawWorkingCountries:rawWorkingCities;}
         function refreshParticipantOptions(){
             const source=currentParticipantSource();
             const copy=PARTICIPANT_UI[projectSettings.language]||PARTICIPANT_UI.en;
-            const countries=[...new Set(source.map(item=>state.mode==='cities'?(flagToCountryMap[item.flag]||item.name):item.name))].sort((a,b)=>a.localeCompare(b,'ru'));
-            const regions=[...new Set(source.flatMap(item=>getRegionsForItem(item.name,state.mode,item.flag)))].sort((a,b)=>a.localeCompare(b,'ru'));
+            const countries=[...new Set(source.map(item=>state.mode==='cities'?(flagToCountryMap[item.flag]||item.name):item.name))].map(country=>({value:country,label:localizedCountryName(country,countryToFlagMap[country])})).sort((a,b)=>a.label.localeCompare(b.label,projectSettings.language));
+            const regions=[...new Set(source.flatMap(item=>getRegionsForItem(item.name,state.mode,item.flag)))].sort((a,b)=>localizedRegionName(a).localeCompare(localizedRegionName(b),projectSettings.language)).map(region=>({value:region,label:localizedRegionName(region)}));
             const organizations=[...new Set(source.flatMap(item=>getOrganizationsForItem(item.name,state.mode,item.flag)))].sort((a,b)=>a.localeCompare(b,'ru'));
             participantOptions(participantFilters.country,copy.participantAllCountries||PARTICIPANT_UI.en.participantAllCountries,countries);participantOptions(participantFilters.region,copy.participantAllRegions||PARTICIPANT_UI.en.participantAllRegions,regions);participantOptions(participantFilters.org,copy.participantAnyOrganization||PARTICIPANT_UI.en.participantAnyOrganization,organizations);
             updateParticipantCounts();
