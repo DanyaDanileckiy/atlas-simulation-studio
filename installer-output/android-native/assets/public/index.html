@@ -81,6 +81,9 @@
         .toggle-checkbox:checked + .toggle-label {
             background-color: #3b82f6;
         }
+        .participant-filter { display:block; width:100%; margin-top:.3rem; padding:.45rem; border:1px solid #334155; border-radius:.45rem; background:#0f172a; color:#f8fafc; font-size:.8rem; }
+        .participant-action { padding:.5rem .65rem; border:1px solid #475569; border-radius:.55rem; background:#1e293b; color:#e2e8f0; font-size:.75rem; transition:background .15s,border-color .15s; }
+        .participant-action:hover { background:#334155; border-color:#818cf8; }
         
         /* Убираем стили по умолчанию для инпутов */
         input[type="text"] {
@@ -128,6 +131,30 @@
                     </optgroup>
                 </select>
             </div>
+            <button id="btn-participants" class="bg-indigo-700 hover:bg-indigo-600 text-white px-3 py-2 rounded-lg font-medium shadow transition-colors text-sm border border-indigo-500" aria-expanded="false">👥 Участники</button>
+            <section id="participants-panel" class="hidden absolute top-full right-4 mt-2 w-[min(94vw,420px)] bg-slate-800 border border-slate-600 rounded-xl shadow-2xl z-50 p-4 flex flex-col gap-3 max-h-[80vh] overflow-y-auto">
+                <div><h2 class="text-sm font-semibold text-white" data-i18n="participantTitle">Состав гонки</h2><p class="text-xs text-slate-400 mt-1" data-i18n="participantHelp">Фильтры работают вместе. Население городов и стран — ориентир за 2020 год.</p></div>
+                <div class="grid grid-cols-2 gap-2">
+                    <label class="text-xs text-slate-300"><span data-i18n="participantCountry">Страна</span><select id="participant-country" class="participant-filter"><option value="all" data-i18n="participantAllCountries">Все страны</option></select></label>
+                    <label class="text-xs text-slate-300"><span data-i18n="participantContinent">Континент</span><select id="participant-continent" class="participant-filter"><option value="all" data-i18n="participantAllContinents">Все континенты</option><option value="Азия" data-i18n="continentAsia">Азия</option><option value="Европа" data-i18n="continentEurope">Европа</option><option value="Африка" data-i18n="continentAfrica">Африка</option><option value="Северная Америка" data-i18n="continentNorthAmerica">Северная Америка</option><option value="Южная Америка" data-i18n="continentSouthAmerica">Южная Америка</option><option value="Океания" data-i18n="continentOceania">Океания</option></select></label>
+                    <label class="text-xs text-slate-300"><span data-i18n="participantRegion">Регион</span><select id="participant-region" class="participant-filter"><option value="all" data-i18n="participantAllRegions">Все регионы</option></select></label>
+                    <label class="text-xs text-slate-300"><span data-i18n="participantOrganization">Организация</span><select id="participant-org" class="participant-filter"><option value="all" data-i18n="participantAnyOrganization">Любая организация</option></select></label>
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <label class="text-xs text-slate-300"><span data-i18n="participantPopulationFrom">Население от</span><input id="participant-min" type="number" min="0" step="100000" placeholder="Без минимума" class="participant-filter"></label>
+                    <label class="text-xs text-slate-300"><span data-i18n="participantPopulationTo">Население до</span><input id="participant-max" type="number" min="0" step="100000" placeholder="Без максимума" class="participant-filter"></label>
+                </div>
+                <div class="flex flex-wrap gap-2">
+                    <button data-pop-preset="under1" class="participant-action" data-i18n="participantUnder1">Города &lt; 1 млн</button><button data-pop-preset="over5" class="participant-action" data-i18n="participantOver5">Города &gt; 5 млн</button><button id="participant-clear-filters" class="participant-action" data-i18n="participantReset">Сбросить фильтры</button>
+                </div>
+                <div id="participant-match-count" class="text-xs text-slate-300" data-count-prefix="Совпадения">Совпадения: 0</div>
+                <div class="grid grid-cols-2 gap-2">
+                    <button id="participants-all" class="participant-action" data-i18n="participantEnableAll">Включить всех</button><button id="participants-none" class="participant-action" data-i18n="participantDisableAll">Отключить всех</button>
+                    <button id="participants-only-matches" class="participant-action" data-i18n="participantOnlyMatches">Оставить совпадения</button><button id="participants-add-matches" class="participant-action" data-i18n="participantIncludeMatches">Включить совпадения</button>
+                    <button id="participants-remove-matches" class="participant-action col-span-2" data-i18n="participantExcludeMatches">Исключить совпадения</button>
+                </div>
+                <div id="participant-selected-count" class="text-xs text-slate-400" data-count-prefix="В гонке">В гонке: 0</div>
+            </section>
             
             <button id="btn-settings" class="bg-slate-700 hover:bg-slate-600 text-white px-3 py-2 rounded-lg font-medium shadow transition-colors text-sm flex items-center gap-2 border border-slate-600 relative">
                 ⚙️ Настройки
@@ -164,7 +191,7 @@
                         <option value="20">Топ-20</option>
                         <option value="50">Топ-50</option>
                         <option value="100">Топ-100</option>
-                        <option value="150" selected>Все 150</option>
+                        <option value="150">150</option><option value="200">200</option><option value="300">300</option><option value="500" selected>Все (до 500)</option>
                     </select>
                 </div>
                 <div class="flex items-center justify-between">
@@ -487,6 +514,19 @@
         { name: "Анкара", flag: "🇹🇷", pop2020: 5100000 }, { name: "Сидней", flag: "🇦🇺", pop2020: 5300000 }, { name: "Торонто", flag: "🇨🇦", pop2020: 6100000 }, { name: "Мельбурн", flag: "🇦🇺", pop2020: 5000000 }, { name: "Мадрид", flag: "🇪🇸", pop2020: 6600000 },
         { name: "Барселона", flag: "🇪🇸", pop2020: 5500000 }, { name: "Рим", flag: "🇮🇹", pop2020: 4300000 }, { name: "Милан", flag: "🇮🇹", pop2020: 3100000 }, { name: "Афины", flag: "🇬🇷", pop2020: 3100000 }, { name: "Берлин", flag: "🇩🇪", pop2020: 3600000 },
         { name: "Париж", flag: "🇫🇷", pop2020: 11000000 },
+        { name: "Москва", flag: "🇷🇺", pop2020: 12500000 }, { name: "Санкт-Петербург", flag: "🇷🇺", pop2020: 5600000 },
+        { name: "Лондон", flag: "🇬🇧", pop2020: 9500000 }, { name: "Манчестер", flag: "🇬🇧", pop2020: 2800000 }, { name: "Бирмингем", flag: "🇬🇧", pop2020: 2600000 },
+        { name: "Лос-Анджелес", flag: "🇺🇸", pop2020: 12400000 }, { name: "Чикаго", flag: "🇺🇸", pop2020: 8900000 }, { name: "Сан-Диего", flag: "🇺🇸", pop2020: 3300000 }, { name: "Сан-Антонио", flag: "🇺🇸", pop2020: 2600000 }, { name: "Остин", flag: "🇺🇸", pop2020: 2300000 }, { name: "Денвер", flag: "🇺🇸", pop2020: 2900000 }, { name: "Орландо", flag: "🇺🇸", pop2020: 2600000 }, { name: "Шарлотт", flag: "🇺🇸", pop2020: 2700000 },
+        { name: "Стамбул", flag: "🇹🇷", pop2020: 15000000 }, { name: "Измир", flag: "🇹🇷", pop2020: 3000000 }, { name: "Анталья", flag: "🇹🇷", pop2020: 1300000 },
+        { name: "Каир", flag: "🇪🇬", pop2020: 20900000 }, { name: "Лагос", flag: "🇳🇬", pop2020: 14300000 }, { name: "Киншаса", flag: "🇨🇩", pop2020: 14500000 }, { name: "Хартум", flag: "🇸🇩", pop2020: 5600000 }, { name: "Кампала", flag: "🇺🇬", pop2020: 3500000 },
+        { name: "Карачи", flag: "🇵🇰", pop2020: 16000000 }, { name: "Дакка", flag: "🇧🇩", pop2020: 21000000 }, { name: "Читтагонг", flag: "🇧🇩", pop2020: 5000000 }, { name: "Кабул", flag: "🇦🇫", pop2020: 4600000 },
+        { name: "Ухань", flag: "🇨🇳", pop2020: 10300000 }, { name: "Тяньцзинь", flag: "🇨🇳", pop2020: 13800000 }, { name: "Гуанчжоу", flag: "🇨🇳", pop2020: 15300000 }, { name: "Шэньчжэнь", flag: "🇨🇳", pop2020: 12900000 }, { name: "Чунцин", flag: "🇨🇳", pop2020: 16300000 }, { name: "Нанкин", flag: "🇨🇳", pop2020: 8500000 }, { name: "Чанша", flag: "🇨🇳", pop2020: 7100000 },
+        { name: "Бенгалуру", flag: "🇮🇳", pop2020: 12500000 }, { name: "Хайдарабад", flag: "🇮🇳", pop2020: 10200000 }, { name: "Пуна", flag: "🇮🇳", pop2020: 7200000 }, { name: "Джайпур", flag: "🇮🇳", pop2020: 4000000 }, { name: "Патна", flag: "🇮🇳", pop2020: 2500000 }, { name: "Кочи", flag: "🇮🇳", pop2020: 2100000 },
+        { name: "Нагоя", flag: "🇯🇵", pop2020: 9500000 }, { name: "Фукуока", flag: "🇯🇵", pop2020: 2500000 }, { name: "Хиросима", flag: "🇯🇵", pop2020: 1200000 },
+        { name: "Ханой", flag: "🇻🇳", pop2020: 5000000 }, { name: "Хайфон", flag: "🇻🇳", pop2020: 2100000 }, { name: "Каракас", flag: "🇻🇪", pop2020: 2900000 }, { name: "Медельин", flag: "🇨🇴", pop2020: 4000000 }, { name: "Кали", flag: "🇨🇴", pop2020: 2300000 },
+        { name: "Кордова", flag: "🇦🇷", pop2020: 1600000 }, { name: "Росарио", flag: "🇦🇷", pop2020: 1300000 }, { name: "Бразилиа", flag: "🇧🇷", pop2020: 4600000 }, { name: "Рио-де-Жанейро", flag: "🇧🇷", pop2020: 13500000 }, { name: "Порту-Алегри", flag: "🇧🇷", pop2020: 4300000 },
+        { name: "Брисбен", flag: "🇦🇺", pop2020: 2500000 }, { name: "Перт", flag: "🇦🇺", pop2020: 2100000 }, { name: "Аделаида", flag: "🇦🇺", pop2020: 1400000 }, { name: "Окленд", flag: "🇳🇿", pop2020: 1700000 },
+        { name: "Лиссабон", flag: "🇵🇹", pop2020: 2900000 }, { name: "Прага", flag: "🇨🇿", pop2020: 1300000 }, { name: "Киев", flag: "🇺🇦", pop2020: 3000000 }, { name: "Харьков", flag: "🇺🇦", pop2020: 1400000 }, { name: "Неаполь", flag: "🇮🇹", pop2020: 3100000 }, { name: "Валенсия", flag: "🇪🇸", pop2020: 2500000 }, { name: "Севилья", flag: "🇪🇸", pop2020: 1500000 },
         
         { name: "Тель-Авив", flag: "🇮🇱", pop2020: 4000000 }, { name: "Иерусалим", flag: "🇮🇱", pop2020: 1200000 },
         { name: "Будапешт", flag: "🇭🇺", pop2020: 3000000 }, { name: "Бухарест", flag: "🇷🇴", pop2020: 2400000 },
@@ -646,9 +686,9 @@
     backfillTo1900(defaultCitiesData);
 
     let existingCities = new Set(defaultCitiesData.map(c => c.name));
-    if (defaultCitiesData.length < 200) {
+    if (defaultCitiesData.length < 350) {
         for (let i = 0; i < cityDataList.length; i++) {
-            if (defaultCitiesData.length >= 200) break;
+            if (defaultCitiesData.length >= 350) break;
             let cityObj = cityDataList[i];
             if (existingCities.has(cityObj.name)) continue;
 
@@ -723,6 +763,49 @@
         return tags;
     }
 
+    const REGION_MEMBERS = {
+        'Восточная Азия':['Китай','Япония','Южная Корея','КНДР','Монголия','Тайвань','Гонконг'],
+        'Южная Азия':['Индия','Пакистан','Бангладеш','Афганистан','Шри-Ланка','Непал','Мальдивы','Бутан'],
+        'Юго-Восточная Азия':['Индонезия','Филиппины','Вьетнам','Таиланд','Мьянма','Малайзия','Сингапур','Камбоджа','Лаос','Бруней'],
+        'Центральная Азия':['Узбекистан','Казахстан','Таджикистан','Кыргызстан','Туркменистан'],
+        'Западная Азия':['Иран','Турция','Саудовская Аравия','Йемен','Израиль','ОАЭ','Сирия','Ливан','Оман','Палестина','Иордания','Кувейт','Азербайджан','Грузия','Катар','Бахрейн','Армения','Ирак'],
+        'Северная Европа':['Россия','Великобритания','Швеция','Дания','Финляндия','Норвегия','Ирландия','Литва','Латвия','Эстония','Исландия'],
+        'Западная Европа':['Германия','Франция','Нидерланды','Бельгия','Швейцария','Австрия','Люксембург','Монако'],
+        'Южная Европа':['Италия','Испания','Португалия','Греция','Хорватия','Сербия','Болгария','Словения','Албания','Кипр','Мальта','Черногория','Северная Македония','Босния и Герцеговина','Андорра'],
+        'Восточная Европа':['Украина','Польша','Румыния','Чехия','Венгрия','Беларусь','Словакия','Молдова'],
+        'Северная Америка':['США','Канада'],
+        'Центральная Америка и Карибы':['Мексика','Гватемала','Гаити','Куба','Доминиканская Респ.','Гондурас','Сальвадор','Никарагуа','Коста-Рика','Панама','Ямайка','Тринидад и Тобаго','Белиз','Багамы','Барбадос','Сент-Люсия','Гренада','Сент-Винсент','Антигуа и Барбуда'],
+        'Южная Америка':['Бразилия','Колумбия','Аргентина','Перу','Венесуэла','Чили','Эквадор','Боливия','Парагвай','Уругвай','Гайана','Суринам'],
+        'Северная Африка':['Египет','Алжир','Марокко','Тунис','Ливия','Судан','Мавритания'],
+        'Западная Африка':['Нигерия','Гана','Кот-д\'Ивуар','Сенегал','Мали','Нигер','Буркина-Фасо','Гвинея','Бенин','Того','Сьерра-Леоне','Либерия','Гамбия','Гвинея-Бисау','Кабо-Верде'],
+        'Восточная Африка':['Эфиопия','Танзания','Кения','Уганда','Мозамбик','Мадагаскар','Малави','Замбия','Сомали','Зимбабве','Руанда','Бурунди','Южный Судан','Эритрея','Коморские острова','Маврикий','Джибути','Сейшелы'],
+        'Центральная Африка':['ДР Конго','Ангола','Камерун','Чад','Конго','ЦАР','Габон','Экваториальная Гвинея','Сан-Томе'],
+        'Южная Африка':['ЮАР','Намибия','Ботсвана','Лесото','Эсватини'],
+        'Австралия и Новая Зеландия':['Австралия','Новая Зеландия'],
+        'Меланезия':['Папуа Новая Гвинея','Фиджи','Соломоновы острова','Вануату'],
+        'Микронезия и Полинезия':['Микронезия','Самоа','Кирибати','Тонга']
+    };
+    const ORGANIZATION_MEMBERS = {
+        'Европейский союз':['Австрия','Бельгия','Болгария','Хорватия','Кипр','Чехия','Дания','Эстония','Финляндия','Франция','Германия','Греция','Венгрия','Ирландия','Италия','Латвия','Литва','Люксембург','Мальта','Нидерланды','Польша','Португалия','Румыния','Словакия','Словения','Испания','Швеция'],
+        'НАТО':['Албания','Бельгия','Болгария','Канада','Хорватия','Чехия','Дания','Эстония','Финляндия','Франция','Германия','Греция','Венгрия','Исландия','Италия','Латвия','Литва','Люксембург','Черногория','Нидерланды','Северная Македония','Норвегия','Польша','Португалия','Румыния','Словакия','Словения','Испания','Швеция','Турция','Великобритания','США'],
+        'G7':['Канада','Франция','Германия','Италия','Япония','Великобритания','США'],
+        'G20':['Аргентина','Австралия','Бразилия','Канада','Китай','Франция','Германия','Индия','Индонезия','Италия','Япония','Мексика','Россия','Саудовская Аравия','ЮАР','Южная Корея','Турция','Великобритания','США'],
+        'БРИКС':['Бразилия','Россия','Индия','Китай','ЮАР','Египет','Эфиопия','Иран','ОАЭ','Индонезия'],
+        'АСЕАН':['Бруней','Камбоджа','Индонезия','Лаос','Малайзия','Мьянма','Филиппины','Сингапур','Таиланд','Вьетнам'],
+        'Африканский союз':['Нигерия','Эфиопия','Египет','ДР Конго','Танзания','ЮАР','Кения','Алжир','Судан','Уганда','Марокко','Ангола','Мозамбик','Гана','Мадагаскар','Кот-д\'Ивуар','Камерун','Нигер','Буркина-Фасо','Мали','Малави','Замбия','Сенегал','Чад','Сомали','Зимбабве','Гвинея','Руанда','Бенин','Бурунди','Тунис','Южный Судан','Того','Сьерра-Леоне','Конго','Либерия','ЦАР','Мавритания','Ливия','Эритрея','Намибия','Гамбия','Ботсвана','Габон','Лесото','Экваториальная Гвинея','Маврикий','Эсватини','Джибути','Коморские острова','Кабо-Верде','Сан-Томе','Сейшелы','Гвинея-Бисау'],
+        'Лига арабских государств':['Египет','Алжир','Судан','Марокко','Тунис','Ливия','Мавритания','Сомали','Джибути','Коморские острова','Ирак','Сирия','Ливан','Иордания','Кувейт','Саудовская Аравия','Бахрейн','Катар','ОАЭ','Оман','Йемен','Палестина']
+    };
+    function getRegionsForItem(name, mode, flag) {
+        const country=mode==='cities'?(flagToCountryMap[flag]||name):name;
+        const specific=Object.entries(REGION_MEMBERS).filter(([,members])=>members.includes(country)).map(([region])=>region);
+        const continentTags=getTagsForItem(name,mode,flag);
+        return specific.length?specific:(continentTags.length?continentTags:['Другие / не указано']);
+    }
+    function getOrganizationsForItem(name, mode, flag) {
+        const country=mode==='cities'?(flagToCountryMap[flag]||name):name;
+        return Object.entries(ORGANIZATION_MEMBERS).filter(([,members])=>members.includes(country)).map(([org])=>org);
+    }
+
     function getFilteredEditorData() {
         let sourceData = currentEditorMode === 'countries' ? rawWorkingCountries : rawWorkingCities;
         if (state.filterCategory !== "all") {
@@ -744,7 +827,7 @@
         currentYear: 1900,
         isPlaying: false,
         msPerYear: 15000,
-        topN: 150,
+        topN: 500,
         selectedBar: null,
         mode: 'countries',
         filterCategory: 'all',
@@ -752,6 +835,10 @@
         autoZoom: true,
         soundEnabled: false
     };
+    const participantSelectionKey='atlas-simulation-participants-v1';
+    let participantSelection=(()=>{try{return JSON.parse(localStorage.getItem(participantSelectionKey)||'{"countries":{"mode":"all","names":[]},"cities":{"mode":"all","names":[]}}')}catch{return {countries:{mode:'all',names:[]},cities:{mode:'all',names:[]}}}})();
+    for(const mode of ['countries','cities']) if(!participantSelection[mode]||!['all','none','custom'].includes(participantSelection[mode].mode)) participantSelection[mode]={mode:'all',names:[]};
+    const saveParticipantSelection=()=>localStorage.setItem(participantSelectionKey,JSON.stringify(participantSelection));
 
     // Настройки проекта хранятся отдельно от табличных данных симуляции.
     const LANGUAGES = [
@@ -768,6 +855,13 @@
         uk:{studio:'СТУДІЯ СИМУЛЯЦІЙ',language:'Мова',install:'Встановити застосунок',installHelp:'Встановіть кнопкою вище у підтримуваному браузері. iPhone/iPad: Safari → Поділитися → На початковий екран.',simulation:'Що симулюємо',customMetric:'Назва власної метрики',settings:'Налаштування',description:'Оберіть тему, метрику змагання та масштаб даних.'},
         ar:{studio:'استوديو المحاكاة',language:'اللغة',install:'تثبيت التطبيق',installHelp:'ثبّت عبر الزر أعلاه. على iPhone/iPad: Safari ← مشاركة ← إضافة إلى الشاشة الرئيسية.',simulation:'موضوع المحاكاة',customMetric:'اسم المقياس المخصص',settings:'الإعدادات',description:'اختر الموضوع والمقياس ونطاق البيانات.'}
     };
+    const PARTICIPANT_UI={
+        ru:{participantTitle:'Состав гонки',participantHelp:'Фильтры работают вместе. Население — ориентир за 2020 год.',participantCountry:'Страна',participantContinent:'Континент',participantRegion:'Регион',participantOrganization:'Организация',participantAllCountries:'Все страны',participantAllContinents:'Все континенты',participantAllRegions:'Все регионы',participantAnyOrganization:'Любая организация',participantPopulationFrom:'Население от',participantPopulationTo:'Население до',participantUnder1:'Города < 1 млн',participantOver5:'Города > 5 млн',participantReset:'Сбросить фильтры',participantEnableAll:'Включить всех',participantDisableAll:'Отключить всех',participantOnlyMatches:'Оставить совпадения',participantIncludeMatches:'Включить совпадения',participantExcludeMatches:'Исключить совпадения',participantNoMinimum:'Без минимума',participantNoMaximum:'Без максимума',participantMatches:'Совпадения',participantInRace:'В гонке'},
+        en:{participantTitle:'Race participants',participantHelp:'Filters combine. Population figures are approximate 2020 baselines.',participantCountry:'Country',participantContinent:'Continent',participantRegion:'Region',participantOrganization:'Organization',participantAllCountries:'All countries',participantAllContinents:'All continents',participantAllRegions:'All regions',participantAnyOrganization:'Any organization',participantPopulationFrom:'Population from',participantPopulationTo:'Population to',participantUnder1:'Cities under 1M',participantOver5:'Cities over 5M',participantReset:'Reset filters',participantEnableAll:'Enable all',participantDisableAll:'Disable all',participantOnlyMatches:'Keep matches only',participantIncludeMatches:'Include matches',participantExcludeMatches:'Exclude matches',participantNoMinimum:'No minimum',participantNoMaximum:'No maximum',participantMatches:'Matches',participantInRace:'In race'},
+        es:{participantTitle:'Participantes',participantCountry:'País',participantContinent:'Continente',participantRegion:'Región',participantOrganization:'Organización',participantEnableAll:'Activar todos',participantDisableAll:'Desactivar todos'},fr:{participantTitle:'Participants',participantCountry:'Pays',participantContinent:'Continent',participantRegion:'Région',participantOrganization:'Organisation',participantEnableAll:'Tout activer',participantDisableAll:'Tout désactiver'},de:{participantTitle:'Teilnehmer',participantCountry:'Land',participantContinent:'Kontinent',participantRegion:'Region',participantOrganization:'Organisation',participantEnableAll:'Alle aktivieren',participantDisableAll:'Alle deaktivieren'},zh:{participantTitle:'参赛对象',participantCountry:'国家',participantContinent:'洲',participantRegion:'地区',participantOrganization:'组织',participantEnableAll:'全部启用',participantDisableAll:'全部停用'},ja:{participantTitle:'参加対象',participantCountry:'国',participantContinent:'大陸',participantRegion:'地域',participantOrganization:'組織',participantEnableAll:'すべて有効',participantDisableAll:'すべて無効'},uk:{participantTitle:'Учасники перегонів',participantCountry:'Країна',participantContinent:'Континент',participantRegion:'Регіон',participantOrganization:'Організація',participantEnableAll:'Увімкнути всіх',participantDisableAll:'Вимкнути всіх'},ar:{participantTitle:'المشاركون',participantCountry:'الدولة',participantContinent:'القارة',participantRegion:'المنطقة',participantOrganization:'المنظمة',participantEnableAll:'تفعيل الكل',participantDisableAll:'تعطيل الكل'}
+    };
+    Object.assign(PARTICIPANT_UI.en,{continentAsia:'Asia',continentEurope:'Europe',continentAfrica:'Africa',continentNorthAmerica:'North America',continentSouthAmerica:'South America',continentOceania:'Oceania'});
+    Object.assign(PARTICIPANT_UI.ru,{continentAsia:'Азия',continentEurope:'Европа',continentAfrica:'Африка',continentNorthAmerica:'Северная Америка',continentSouthAmerica:'Южная Америка',continentOceania:'Океания'});
     const SUBJECTS = {demography:{ru:'Демографическая гонка',en:'Population race',es:'Carrera demográfica',fr:'Course démographique',de:'Bevölkerungsrennen',zh:'人口竞赛',ja:'人口レース',uk:'Демографічні перегони',ar:'سباق السكان'},gdp:{ru:'Гонка экономик: ВВП',en:'GDP race',es:'Carrera del PIB',fr:'Course au PIB',de:'BIP-Wettlauf',zh:'GDP竞赛',ja:'GDPレース',uk:'Перегони ВВП',ar:'سباق الناتج المحلي'},production:{ru:'Гонка производства',en:'Production race',es:'Carrera de producción',fr:'Course à la production',de:'Produktionsrennen',zh:'生产竞赛',ja:'生産レース',uk:'Перегони виробництва',ar:'سباق الإنتاج'},migration:{ru:'Гонка миграционного баланса',en:'Migration balance race',es:'Carrera del saldo migratorio',fr:'Course au solde migratoire',de:'Migrationssaldo-Rennen',zh:'移民净额竞赛',ja:'純移民レース',uk:'Перегони міграційного балансу',ar:'سباق صافي الهجرة'},crime:{ru:'Гонка уровня преступности',en:'Crime rate race',es:'Carrera de criminalidad',fr:'Course à la criminalité',de:'Kriminalitätsrennen',zh:'犯罪率竞赛',ja:'犯罪率レース',uk:'Перегони рівня злочинності',ar:'سباق معدل الجريمة'},custom:{ru:'Пользовательская симуляция',en:'Custom simulation',es:'Simulación personalizada',fr:'Simulation personnalisée',de:'Benutzerdefinierte Simulation',zh:'自定义模拟',ja:'カスタムシミュレーション',uk:'Власна симуляція',ar:'محاكاة مخصصة'}};
     const projectSettingsKey = 'atlas-simulation-settings-v1';
     let projectSettings = (()=>{try{return {...{name:'',subject:'demography',metric:'population',customMetric:'',language:(navigator.language||'ru').slice(0,2)},...JSON.parse(localStorage.getItem(projectSettingsKey)||'{}')}}catch{return {name:'',subject:'demography',metric:'population',customMetric:'',language:'ru'}}})();
@@ -778,6 +872,10 @@
         const lang=projectSettings.language, dict=UI[lang]||UI.en;
         document.documentElement.lang=lang; document.documentElement.dir=['ar','he','fa','ur'].includes(lang)?'rtl':'ltr';
         document.querySelectorAll('[data-i18n]').forEach(el=>{const key=el.dataset.i18n;if(dict[key])el.textContent=dict[key]});
+        const participantDict=PARTICIPANT_UI[lang]||PARTICIPANT_UI.en;
+        document.querySelectorAll('[data-i18n]').forEach(el=>{const key=el.dataset.i18n;if(participantDict[key]||PARTICIPANT_UI.en[key])el.textContent=participantDict[key]||PARTICIPANT_UI.en[key]});
+        document.getElementById('participant-min').placeholder=participantDict.participantNoMinimum||PARTICIPANT_UI.en.participantNoMinimum;
+        document.getElementById('participant-max').placeholder=participantDict.participantNoMaximum||PARTICIPANT_UI.en.participantNoMaximum;
         document.title=`${document.getElementById('project-name').value} — Atlas Studio`;
         const language=document.getElementById('language-select'); if(language) language.value=lang;
         const settingLabel=document.querySelector('#btn-settings');if(settingLabel)settingLabel.lastChild.textContent=' '+dict.settings;
@@ -1375,7 +1473,7 @@
         if(!projectSettings.name)setProjectName(SUBJECTS[projectSettings.subject][projectSettings.language]||SUBJECTS[projectSettings.subject].en);
         else setProjectName(projectSettings.name);
         applyInterfaceLanguage();
-        languageSelect.addEventListener('change',()=>{projectSettings.language=languageSelect.value;setProjectName(projectSettings.name||SUBJECTS[projectSettings.subject][projectSettings.language]||SUBJECTS[projectSettings.subject].en);applyInterfaceLanguage();persistProjectSettings()});
+        languageSelect.addEventListener('change',()=>{projectSettings.language=languageSelect.value;setProjectName(projectSettings.name||SUBJECTS[projectSettings.subject][projectSettings.language]||SUBJECTS[projectSettings.subject].en);applyInterfaceLanguage();if(typeof refreshParticipantOptions==='function')refreshParticipantOptions();persistProjectSettings()});
         document.getElementById('project-name').addEventListener('input',e=>{projectSettings.name=e.target.value;applyInterfaceLanguage();persistProjectSettings()});
         const subjectSelect=document.getElementById('simulation-select');
         const subjectQuick=document.getElementById('subject-quick');
@@ -1521,8 +1619,56 @@
                     return tags.includes(state.filterCategory);
                 });
             }
+            const selection=participantSelection[state.mode];
+            if(selection.mode==='none') sourceData=[];
+            else if(selection.mode==='custom') { const names=new Set(selection.names); sourceData=sourceData.filter(item=>names.has(item.name)); }
             loadData(sourceData, true); 
         }
+
+        const participantPanel=document.getElementById('participants-panel');
+        const participantFilters={country:document.getElementById('participant-country'),continent:document.getElementById('participant-continent'),region:document.getElementById('participant-region'),org:document.getElementById('participant-org'),min:document.getElementById('participant-min'),max:document.getElementById('participant-max')};
+        const participantOptions=(select,placeholder,values)=>{const selected=select.value;select.innerHTML=`<option value="all">${placeholder}</option>`+values.map(value=>`<option value="${value.replaceAll('&','&amp;').replaceAll('"','&quot;')}">${value}</option>`).join('');if(values.includes(selected))select.value=selected;};
+        function currentParticipantSource(){return state.mode==='countries'?rawWorkingCountries:rawWorkingCities;}
+        function refreshParticipantOptions(){
+            const source=currentParticipantSource();
+            const copy=PARTICIPANT_UI[projectSettings.language]||PARTICIPANT_UI.en;
+            const countries=[...new Set(source.map(item=>state.mode==='cities'?(flagToCountryMap[item.flag]||item.name):item.name))].sort((a,b)=>a.localeCompare(b,'ru'));
+            const regions=[...new Set(source.flatMap(item=>getRegionsForItem(item.name,state.mode,item.flag)))].sort((a,b)=>a.localeCompare(b,'ru'));
+            const organizations=[...new Set(source.flatMap(item=>getOrganizationsForItem(item.name,state.mode,item.flag)))].sort((a,b)=>a.localeCompare(b,'ru'));
+            participantOptions(participantFilters.country,copy.participantAllCountries||PARTICIPANT_UI.en.participantAllCountries,countries);participantOptions(participantFilters.region,copy.participantAllRegions||PARTICIPANT_UI.en.participantAllRegions,regions);participantOptions(participantFilters.org,copy.participantAnyOrganization||PARTICIPANT_UI.en.participantAnyOrganization,organizations);
+            updateParticipantCounts();
+        }
+        function getParticipantMatches(){
+            const min=Number(participantFilters.min.value)||0,max=Number(participantFilters.max.value)||Infinity;
+            return currentParticipantSource().filter(item=>{
+                const country=state.mode==='cities'?(flagToCountryMap[item.flag]||item.name):item.name;
+                const population=Number(item.data?.[2020]||0);
+                return (participantFilters.country.value==='all'||country===participantFilters.country.value)
+                    &&(participantFilters.continent.value==='all'||getTagsForItem(item.name,state.mode,item.flag).includes(participantFilters.continent.value))
+                    &&(participantFilters.region.value==='all'||getRegionsForItem(item.name,state.mode,item.flag).includes(participantFilters.region.value))
+                    &&(participantFilters.org.value==='all'||getOrganizationsForItem(item.name,state.mode,item.flag).includes(participantFilters.org.value))
+                    &&population>=min&&population<=max;
+            });
+        }
+        function updateParticipantCounts(){
+            const matches=getParticipantMatches(),selection=participantSelection[state.mode],source=currentParticipantSource();
+            const selected=selection.mode==='all'?source.length:selection.mode==='none'?0:source.filter(item=>selection.names.includes(item.name)).length;
+            const copy=PARTICIPANT_UI[projectSettings.language]||PARTICIPANT_UI.en;
+            document.getElementById('participant-match-count').textContent=`${copy.participantMatches||PARTICIPANT_UI.en.participantMatches}: ${matches.length} из ${source.length}`;
+            document.getElementById('participant-selected-count').textContent=`${copy.participantInRace||PARTICIPANT_UI.en.participantInRace}: ${selected} из ${source.length}`;
+        }
+        function setParticipants(mode,names=[]){participantSelection[state.mode]={mode,names:[...new Set(names)]};saveParticipantSelection();applyFilter();updateParticipantCounts();if(!state.isPlaying)renderFrame(true);}
+        document.getElementById('btn-participants').addEventListener('click',()=>{participantPanel.classList.toggle('hidden');document.getElementById('btn-participants').setAttribute('aria-expanded',String(!participantPanel.classList.contains('hidden')));refreshParticipantOptions();});
+        document.addEventListener('click',e=>{const button=document.getElementById('btn-participants');if(!button.contains(e.target)&&!participantPanel.contains(e.target)){participantPanel.classList.add('hidden');button.setAttribute('aria-expanded','false');}});
+        Object.values(participantFilters).forEach(control=>control.addEventListener('input',updateParticipantCounts));
+        [participantFilters.country,participantFilters.continent,participantFilters.region,participantFilters.org].forEach(control=>control.addEventListener('change',updateParticipantCounts));
+        document.querySelectorAll('[data-pop-preset]').forEach(button=>button.addEventListener('click',()=>{participantFilters.min.value=button.dataset.popPreset==='over5'?'5000000':'';participantFilters.max.value=button.dataset.popPreset==='under1'?'999999':'';updateParticipantCounts();}));
+        document.getElementById('participant-clear-filters').addEventListener('click',()=>{Object.values(participantFilters).forEach(control=>control.value='');participantFilters.country.value=participantFilters.continent.value=participantFilters.region.value=participantFilters.org.value='all';updateParticipantCounts();});
+        document.getElementById('participants-all').addEventListener('click',()=>setParticipants('all'));
+        document.getElementById('participants-none').addEventListener('click',()=>setParticipants('none'));
+        document.getElementById('participants-only-matches').addEventListener('click',()=>setParticipants('custom',getParticipantMatches().map(item=>item.name)));
+        document.getElementById('participants-add-matches').addEventListener('click',()=>{const selection=participantSelection[state.mode],matches=getParticipantMatches().map(item=>item.name);if(selection.mode==='all')return;if(selection.mode==='none')setParticipants('custom',matches);else setParticipants('custom',[...selection.names,...matches]);});
+        document.getElementById('participants-remove-matches').addEventListener('click',()=>{const selection=participantSelection[state.mode],removed=new Set(getParticipantMatches().map(item=>item.name));if(selection.mode==='none')return;const remaining=selection.mode==='all'?currentParticipantSource().filter(item=>!removed.has(item.name)).map(item=>item.name):selection.names.filter(name=>!removed.has(name));setParticipants('custom',remaining);});
 
         filterSelect.addEventListener("change", (e) => {
             state.filterCategory = e.target.value;
@@ -1546,6 +1692,7 @@
                 viewViz.classList.remove("hidden");
                 timelineContainer.classList.remove("hidden");
                 state.mode = 'countries';
+                refreshParticipantOptions();
                 applyFilter();
             } else if (tabId === 'cities') {
                 tabCities.classList.add("active");
@@ -1553,6 +1700,7 @@
                 viewViz.classList.remove("hidden");
                 timelineContainer.classList.remove("hidden");
                 state.mode = 'cities';
+                refreshParticipantOptions();
                 applyFilter();
             } else if (tabId === 'data-countries') {
                 tabDataCountries.classList.add("active");
@@ -1727,7 +1875,8 @@
         });
 
         initD3();
-        loadData(rawWorkingCountries, true);
+        refreshParticipantOptions();
+        applyFilter();
     });
 
     window.addEventListener('resize', () => {
