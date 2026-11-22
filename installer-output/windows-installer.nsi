@@ -1,7 +1,7 @@
 Unicode true
 !include "MUI2.nsh"
 !define APP "Atlas Simulation Studio"
-!define SRC "..\.."
+!define SRC ".."
 Name "${APP}"
 OutFile "AtlasSimulationStudioSetup.exe"
 InstallDir "$LOCALAPPDATA\Programs\${APP}"
