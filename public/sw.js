@@ -1,4 +1,4 @@
-const CACHE='atlas-studio-v7';
+const CACHE='atlas-studio-v8';
 const CORE=['./','./index.html','./manifest.webmanifest','./icon.svg','./vendor/tailwindcss.js','./vendor/d3.v7.min.js'];
 self.addEventListener('install',event=>event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(CORE)).then(()=>self.skipWaiting())));
 self.addEventListener('activate',event=>event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(key=>key!==CACHE).map(key=>caches.delete(key)))).then(()=>self.clients.claim())));
