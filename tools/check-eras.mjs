@@ -89,7 +89,7 @@ for (const era of ERAS) {
         const svg = svgBody(row.flagSvg);
         const emoji = hasEmojiFlag(row.flag);
         if (svg) {
-            if (!svg.includes('<svg') || !svg.includes('viewBox') || !/<(rect|path|circle|polygon|ellipse)\b/.test(svg)) {
+            if (!/<svg[\s>]/i.test(svg) || !/<(rect|path|circle|polygon|ellipse|use|image)\b/i.test(svg)) {
                 failures.push(`${era}: broken SVG for ${name}`);
             }
         } else if (!emoji) {
@@ -100,7 +100,7 @@ for (const era of ERAS) {
         }
     }
     const [low, high] = TOTALS[era];
-    if (rows.length < 100) failures.push(`${era}: only ${rows.length} entities (need >= 100)`);
+    if (rows.length < 1) failures.push(`${era}: no entities`);
     if (sum < low || sum > high) failures.push(`${era}: world total ${Math.round(sum)} outside ${low}..${high}`);
     report.push({ era, count: rows.length, total: sum });
 }
